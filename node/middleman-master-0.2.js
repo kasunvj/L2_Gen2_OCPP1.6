@@ -32,12 +32,31 @@ class mySide{
 
 
 /*
+
+Save all data from the network related to L2 charger on  NetworkDataLEFT
+_NetworkDataLEFT_____________________
 cid - charger ID
 lastChargePt - Last Charge Percentage
 lastTime - Last Charge Time
 lastCost - Last Charge Cost
 chargerPower - Last Charge Power
-chargerPrice - Charger Price Per KWh*/
+chargerPrice - Charger Price Per KWh
+
+
+Save all data from the network related to GB/T charger on  NetworkDataRIGHT
+_NetworkDataLEFT_____________________
+cid - charger ID
+lastChargePt - Last Charge Percentage
+lastTime - Last Charge Time
+lastCost - Last Charge Cost
+chargerPower - Last Charge Power
+chargerPrice - Charger Price Per KWh
+unameFirst - UserName First
+unameRight - User Name Last
+ubal - User Balance
+cProfile - User Charging profile 
+*/
+
 class NetworkDataLEFT{
 	constructor(cid,lastChargePt,lastTime,lastCost,chargerPower,chargerPrice){
 		this.cid = cid;
@@ -107,14 +126,13 @@ function sleep(ms) {
   });
 }
 
-
 async function gpioTest(){
 	
 	await led.create(5,'out',0);
 	/*Push button is taken from reading the /proc/gpio_intr 
 	  No need to initate it then
 	*/
-	//await pushButton .create(4,'in',0);
+	await pushButton.create(4,'in',0);
 	
 	
 	middleman.pageChange(73);
@@ -125,15 +143,18 @@ async function gpioTest(){
 	
 	while(1){
 		
-		//if(await pushButton.isPressed()){
-		//	console.log("*")
-		//	await delay(500);
-		//}
+		if(await pushButton.isPressed()){
+			console.log("*")
+			await delay(500);
+		}
 		
 		
-		newLeft = parseInt(await readLineAsync("Page L(0-5)?"));
-		newRight = parseInt(await readLineAsync("Page R(0-6)?"));
+		//newLeft = parseInt(await readLineAsync("Page L(0-5)?"));
+		//newRight = parseInt(await readLineAsync("Page R(0-6)?"));
 		//console.log("Your response was: " +parseInt(dmgSide.myLeft) +" "+parseInt(dmgSide.myRight));
+		
+		
+		
 		}
 		
 	
@@ -141,32 +162,6 @@ async function gpioTest(){
 	//clearInterval(blinkLed);
 	//led.off();
 }
-
-
-async function controllerPolling(){
-	//console.log(middleman.newTap.getTapString());
-	
-	middleman.writeMCUData('M','A');
-	//middleman.writeMCUData('m','A');
-	
-	//console.log(middleman.readMCUData('msgId0'))
-	//console.log(middleman.readMCUData('msgId1'))
-	
-	if( newLeft !=  dmgSide.myLeft){
-		
-		pageEventEmitter.emit('newpage_Left_dmg',newLeft)
-	}
-	
-	if(newRight !=  dmgSide.myRight){
-		
-		pageEventEmitter.emit('newpage_Right_dmg',newRight)
-	}
-	
-}
-
-
-
-
 
 async function die(){
 	let exit = await led.unexport()
@@ -195,6 +190,18 @@ const readLineAsync = msg => {
 
 var led =new middleman.gpio()
 var pushButton = new middleman.gpio()
+
+gpioTest();
+
+
+
+
+
+
+
+
+//+ GBT  ------------------------------------------------------------------------------------------------------------------
+
 /*-------------------------------------
 Left (L2)____________________________
 cid - charger ID
@@ -220,12 +227,12 @@ charging mode
 	3 - to 15 mins
 	4 - to 30 mins
 ---------------------------------------*/
+
+
 var dataL = new NetworkDataLEFT(9999,98,999,567.8,87,235.5);
 var dataR = new NetworkDataRIGHT(9999,99,999,3450.7,67,567.8,"ABCD","ABCDEFGHIJKL",199.99,1);
 
 var dmgSide= new mySide(0,0);
-
-gpioTest()
 
 let controllerPollingID = setInterval(()=>controllerPolling(),500);
 
@@ -291,7 +298,28 @@ pageEventEmitter.on('newpage_Right_dmg', async function(newRight) {
 	//console.log("wrote R page")
 })
 
-
+async function controllerPolling(){
+	//console.log(middleman.newTap.getTapString());
+	
+	middleman.writeMCUData('M','A');
+	//middleman.writeMCUData('m','A');
+	
+	//console.log(middleman.readMCUData('msgId0'))
+	//console.log(middleman.readMCUData('msgId1'))
+	
+	if( newLeft !=  dmgSide.myLeft){
+		
+		pageEventEmitter.emit('newpage_Left_dmg',newLeft)
+	}
+	
+	if(newRight !=  dmgSide.myRight){
+		
+		pageEventEmitter.emit('newpage_Right_dmg',newRight)
+	}
+	
+	//console.log(middleman.readMCUData('stateL2'))
+	
+}
 
 /*Graceful kill*/
 process.on('SIGINT', die);

@@ -41,8 +41,19 @@ class  DataMcuM1{
 			}
 };
 
+class StateMcuL2{
+	constructor(stateL2){
+		this.stateL2 = stateL2
+	}
+	getStateL2(){
+		return this.stateL2
+	}
+	
+}
+
 var mcuDataM0 = new DataMcuM0(0.0,0.0,0.0);
 var mcuDataM1 = new DataMcuM1(0.0,0,0,0);
+var mcuStateL2 = new StateMcuL2(0);
 
 
 /*
@@ -63,6 +74,9 @@ function mcuMsgDecode(buf){
 			//console.log(dataBufIn);
 			if(conv.hexToDec(crc16('MODBUS',dataBufIn).toString(16)) == checksmIn){
 				//console.log("CRC PASSED");
+				mcuStateL2.stateL2 = conv.hexToDec(dataBufIn.slice(0,1)) 
+				//console.log(dataBufIn.slice(0,1))
+				
 				if(msgIdIn == 0){
 					mcuDataM0.volt = conv.hexToDec(totalBufIn.slice(10,12).swap16().toString('hex'));
 					mcuDataM0.curr = conv.hexToDec(totalBufIn.slice(12,14).swap16().toString('hex'));
@@ -168,6 +182,8 @@ function getMCUData(what){
 			return mcuDataM0.getData();break;
 		case 'msgId1':
 			return mcuDataM1.getData();break;
+		case 'stateL2' :
+			return mcuStateL2.getStateL2();break;
 		default :
 			return [0,0,0,0];break;
 			

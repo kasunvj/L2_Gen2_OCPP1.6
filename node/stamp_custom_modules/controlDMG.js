@@ -33,7 +33,7 @@ function dmgIcon(data,port){
 
 
 function sendDMGMessage(sendBuf,port){
-	console.log(sendBuf);
+	//console.log(sendBuf);
 	
 	try{
 		port.write(sendBuf, function(err) {

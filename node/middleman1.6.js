@@ -298,6 +298,189 @@ function updateDisplay(displayState,id){
 	fs.closeSync(fd);		
 }
 
+function bye(){
+	console.log('Gracefully died, Peace!!!');
+    process.exit();
+}
+
+function halfbye(){
+	console.log('Not gracefully died, No Peace!!!');
+    process.exit();
+}
+
+function gracefulDead(){
+	
+	//releasing CID in qmicli
+	var qmclicmd3 = "qmicli --device=/dev/cdc-wdm0 --nas-noop --client-cid="+  objNet.networkCIDGet().toString();
+	var releaseCIDPromise = new Promise((resolve,reject) => {
+									exec(qmclicmd3,(error, stdout, stderr) => {
+										if (error){
+											console.log(`error: ${error.message}`);
+											reject();
+											return;
+											} 
+										if (stderr){
+											console.log(`stderr: ${stderr.message}`);
+											reject();
+											return;
+											}
+										console.log("CID clear ",objNet.networkCIDGet());
+										resolve();
+										}) 
+										
+								});
+	
+	releaseCIDPromise.then(bye,halfbye);
+	
+}
+
+//========================================
+//Functions exposed from this module
+//========================================
+
+function readMCUData(mode){
+	return obj.getMCUData(mode)
+}
+
+class tap {
+	constructor(tap,tapString){
+		this.tap = tap;
+		this.tapString = tapString;
+    }
+	getTap(){
+		return this.tap;
+		} 
+	getTapString(){
+		return this.tapString;
+	}
+};
+var newTap = new tap(0,'');
+
+
+function writeMCUData(controller,msg){
+	return obj.mcuMsgEncode(controller,msg,portS1,parserFixLen)
+}
+
+
+/*---------------------------
+Other display
+-----------------------------*/
+function pageChange(newDiaplayState){
+	
+	var dummyID = setInterval(() => {},0)
+	while(dummyID--){ 
+		clearInterval(dummyID);
+		//console.log("clear time interval id")
+		} 
+	
+	if ((newDiaplayState == 72) || (newDiaplayState == 73) ){
+		fastDisplayUpdate = 1;
+	}
+	
+	let pipeID = setInterval(()=>updateDisplay(newDiaplayState,pipeID),2000);
+	
+	
+}
+
+/*GPIO*/
+class gpio{
+	constructor(pin,dir,val){
+		this.pin = pin;
+		this.dir = dir;
+		this.val = val;
+		
+	}
+	
+	create(myPin,myDir,myVal){
+		this.pin = myPin;
+		this.dir = myDir;
+		this.val = myVal;
+		
+		return new Promise((resolve) => {
+			exec('echo '+myPin.toString()+' > /sys/class/gpio/export', (error,stdout,stderr) => {
+				//console.log("1");	
+				exec('echo '+myDir.toString()+' > /sys/class/gpio/gpio'+myPin+'/direction', (error,stdout,stderr) => {
+					//console.log("2");
+					if(myVal == 1){
+						this.on();
+					}
+					else{
+						this.off();
+					}
+					console.log("setting gpio "+this.pin.toString()+" as "+this.dir);
+					resolve();
+					});
+				});
+			});
+	}
+	
+	on(){
+		exec('echo 1 > /sys/class/gpio/gpio'+this.pin.toString()+'/value', (error,stdout,stderr) => {
+			//console.log("on :",this.pin);
+		});
+	}
+	
+	off(){
+		exec('echo 0 > /sys/class/gpio/gpio'+this.pin.toString()+'/value', (error,stdout,stderr) => {
+			//console.log("off :",this.pin);
+		});
+	}
+	
+	isOn(){
+		
+		return new Promise((resolve) => {
+			exec('cat < /sys/class/gpio/gpio'+this.pin.toString()+'/value', (error,stdout,stderr) => {
+				//console.log("gpio "+this.pin.toString()+": ",parseInt(stdout));
+				resolve(parseInt(stdout));
+				});
+		});
+	}
+	
+	isPressed(){
+		return new Promise((resolve) => {
+			exec('cat < /proc/gpio_intr', (error,stdout,stderr) => {
+				//console.log("gpio "+this.pin.toString()+": ",parseInt(stdout));
+				resolve(parseInt(stdout));
+				});
+		})
+	}
+	
+	unexport(){
+		return new Promise((resolve) => {
+			exec('echo '+this.pin.toString()+' > /sys/class/gpio/unexport', (error,stdout,stderr) => {
+				console.log("gpio "+this.pin.toString()+" unexported")
+				resolve();
+				});
+			});
+	}
+	
+	
+	
+}
+//========================================
+// Async running functions
+//========================================
+
+/* Read from MCU */
+portS1.on('open',readMCU); 
+
+		
+/* Read from Tap Card*/
+portACM0.on('open',listenTapCard);
+
+
+/*Updating network status*/
+let networkcheckID = setInterval(()=>updateNet(),5000);
+
+
+/*Graceful kill*/
+process.on('SIGINT', gracefulDead);
+process.on('SIGTERM', gracefulDead);
+
+
+
+
+// + GBT  -----------------------------------------------------------------------------------------------------------------
 
 
 /*
@@ -1201,8 +1384,6 @@ function dmgTurnOffAllIcons(mySide,myPort){
 	
 }
 
-
-
 function updateDisplayDMG(newSide,newPage,netDataL,netDataR){
 	/*L2 data collect and analize for DMG Display
 	MODE 0
@@ -1273,70 +1454,8 @@ function updateDisplayDMG(newSide,newPage,netDataL,netDataR){
 	
 }
 
-function bye(){
-	console.log('Gracefully died, Peace!!!');
-    process.exit();
-}
 
-function halfbye(){
-	console.log('Not gracefully died, No Peace!!!');
-    process.exit();
-}
-
-function gracefulDead(){
-	
-	//releasing CID in qmicli
-	var qmclicmd3 = "qmicli --device=/dev/cdc-wdm0 --nas-noop --client-cid="+  objNet.networkCIDGet().toString();
-	var releaseCIDPromise = new Promise((resolve,reject) => {
-									exec(qmclicmd3,(error, stdout, stderr) => {
-										if (error){
-											console.log(`error: ${error.message}`);
-											reject();
-											return;
-											} 
-										if (stderr){
-											console.log(`stderr: ${stderr.message}`);
-											reject();
-											return;
-											}
-										console.log("CID clear ",objNet.networkCIDGet());
-										resolve();
-										}) 
-										
-								});
-	
-	releaseCIDPromise.then(bye,halfbye);
-	
-}
-
-//========================================
-//Functions exposed from this module
-//========================================
-
-function readMCUData(mode){
-	return obj.getMCUData(mode)
-}
-
-class tap {
-	constructor(tap,tapString){
-		this.tap = tap;
-		this.tapString = tapString;
-    }
-	getTap(){
-		return this.tap;
-		} 
-	getTapString(){
-		return this.tapString;
-	}
-};
-var newTap = new tap(0,'');
-
-
-function writeMCUData(controller,msg){
-	return obj.mcuMsgEncode(controller,msg,portS1,parserFixLen)
-}
-
-/* --------------------------
+/*
 Left (L2)
 _________
 pageNow - page 0-5
@@ -1361,130 +1480,9 @@ var liveDMGLeft =   new LiveDataLEFT(0,0,0,23,45,99,67,89);//L2 does not have ba
 var liveDMGRight = new LiveDataRIGHT(0,0,0,33,54,56,78,72);
 
 function pageUpdateDMG(newSide,newPage,netDataL,netDataR){
-	
-	
 	return updateDisplayDMG(newSide,newPage,netDataL,netDataR);
-	
 }
 
-
-/*---------------------------
-Other display
------------------------------*/
-function pageChange(newDiaplayState){
-	
-	var dummyID = setInterval(() => {},0)
-	while(dummyID--){ 
-		clearInterval(dummyID);
-		//console.log("clear time interval id")
-		} 
-	
-	if ((newDiaplayState == 72) || (newDiaplayState == 73) ){
-		fastDisplayUpdate = 1;
-	}
-	
-	let pipeID = setInterval(()=>updateDisplay(newDiaplayState,pipeID),2000);
-	
-	
-}
-
-/*GPIO*/
-class gpio{
-	constructor(pin,dir,val){
-		this.pin = pin;
-		this.dir = dir;
-		this.val = val;
-		
-	}
-	
-	create(myPin,myDir,myVal){
-		this.pin = myPin;
-		this.dir = myDir;
-		this.val = myVal;
-		
-		return new Promise((resolve) => {
-			exec('echo '+myPin.toString()+' > /sys/class/gpio/export', (error,stdout,stderr) => {
-				//console.log("1");	
-				exec('echo '+myDir.toString()+' > /sys/class/gpio/gpio'+myPin+'/direction', (error,stdout,stderr) => {
-					//console.log("2");
-					if(myVal == 1){
-						this.on();
-					}
-					else{
-						this.off();
-					}
-					console.log("setting gpio "+this.pin.toString()+" as "+this.dir);
-					resolve();
-					});
-				});
-			});
-	}
-	
-	on(){
-		exec('echo 1 > /sys/class/gpio/gpio'+this.pin.toString()+'/value', (error,stdout,stderr) => {
-			//console.log("on :",this.pin);
-		});
-	}
-	
-	off(){
-		exec('echo 0 > /sys/class/gpio/gpio'+this.pin.toString()+'/value', (error,stdout,stderr) => {
-			//console.log("off :",this.pin);
-		});
-	}
-	
-	isOn(){
-		
-		return new Promise((resolve) => {
-			exec('cat < /sys/class/gpio/gpio'+this.pin.toString()+'/value', (error,stdout,stderr) => {
-				//console.log("gpio "+this.pin.toString()+": ",parseInt(stdout));
-				resolve(parseInt(stdout));
-				});
-		});
-	}
-	
-	isPressed(){
-		return new Promise((resolve) => {
-			exec('cat < /proc/gpio_intr', (error,stdout,stderr) => {
-				//console.log("gpio "+this.pin.toString()+": ",parseInt(stdout));
-				resolve(parseInt(stdout));
-				});
-		})
-	}
-	
-	unexport(){
-		return new Promise((resolve) => {
-			exec('echo '+this.pin.toString()+' > /sys/class/gpio/unexport', (error,stdout,stderr) => {
-				console.log("gpio "+this.pin.toString()+" unexported")
-				resolve();
-				});
-			});
-	}
-	
-	
-	
-}
-//========================================
-// Async running functions
-//========================================
-
-/* Read from MCU */
-portS1.on('open',readMCU); 
-
-		
-/* Read from Tap Card*/
-portACM0.on('open',listenTapCard);
-
-
-/*Updating network status*/
-let networkcheckID = setInterval(()=>updateNet(),5000);
-
-
-/*Graceful kill*/
-process.on('SIGINT', gracefulDead);
-process.on('SIGTERM', gracefulDead);
-
-//module.exports = {readMCUData,pageChange,newTap,writeMCUData}
-module.exports = {readMCUData,writeMCUData,pageChange,pageUpdateDMG,newTap,gpio}
 
 /* TESTING Value change */
 let testID = setInterval(()=>{
@@ -1500,6 +1498,24 @@ let testID = setInterval(()=>{
 		liveDMGRight.battPLive = 0;
 	}
 },500);
+
+module.exports = {readMCUData,writeMCUData,pageChange,pageUpdateDMG,newTap,gpio}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 /*
 Appendix:
 
