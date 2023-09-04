@@ -71,7 +71,7 @@ function mcuMsgDecode(buf){
 			checksmIn = conv.hexToDec(totalBufIn.slice(16,18).swap16().toString('hex'));
 			dataBufIn = totalBufIn.slice(1,16);
 			msgIdIn = conv.hexToDec(totalBufIn.slice(9,10).toString('hex'));
-			//console.log(dataBufIn);
+			console.log(dataBufIn);
 			if(conv.hexToDec(crc16('MODBUS',dataBufIn).toString(16)) == checksmIn){
 				//console.log("CRC PASSED");
 				mcuStateL2.stateL2 = conv.hexToDec(dataBufIn.slice(0,1)) 

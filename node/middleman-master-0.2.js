@@ -140,7 +140,7 @@ async function gpioTest(){
 	const blinkLed = setInterval(blink, 1000);
 	
 	
-	
+	/*
 	while(1){
 		
 		if(await pushButton.isPressed()){
@@ -155,7 +155,7 @@ async function gpioTest(){
 		
 		
 		
-		}
+		}*/
 		
 	
 	
