@@ -17,6 +17,7 @@ var obj = require("./stamp_custom_modules/mcuMsgHandle3");
 var objTap = require("./stamp_custom_modules/tapcardGet");
 var objNet = require("./stamp_custom_modules/networkCheck");
 var objDMG = require("./stamp_custom_modules/controlDMG");
+var mymonitor = require('./stamp_custom_modules/mcuMonitor'); 
 
 const portS1 = new SerialPort({ path: '/dev/ttyS1', baudRate: 9600,parity: 'even' }); 
 const portS2 = new SerialPort({ path: '/dev/ttyS2', baudRate: 115200}); 
@@ -340,6 +341,10 @@ function gracefulDead(){
 
 function readMCUData(mode){
 	return obj.getMCUData(mode)
+}
+
+function mcuMonitor(control){
+	mymonitor.monitor(control)
 }
 
 class tap {
@@ -1499,7 +1504,7 @@ let testID = setInterval(()=>{
 	}
 },500);
 
-module.exports = {readMCUData,writeMCUData,pageChange,pageUpdateDMG,newTap,gpio}
+module.exports = {readMCUData,writeMCUData,pageChange,pageUpdateDMG,newTap,gpio,mcuMonitor}
 
 
 

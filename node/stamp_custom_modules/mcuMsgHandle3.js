@@ -95,8 +95,8 @@ function mcuMsgDecode(buf){
 			dataBufIn = totalBufIn.slice(1,16);
 			msgIdIn = conv.hexToDec(totalBufIn.slice(9,10).toString('hex'));
 			
-			console.log('In:          #  C  ST *  NR *  *  PE *  MG V1 -- V2 -- V3 -- CR C- *  n')
-			console.log('In: ',totalBufIn);
+			//console.log('In:          #  C  ST *  NR *  *  PE *  MG V1 -- V2 -- V3 -- CR C- *  n')
+			//console.log('In: ',totalBufIn);
 			
 			
 			if(conv.hexToDec(crc16('MODBUS',dataBufIn).toString(16)) == checksmIn){
