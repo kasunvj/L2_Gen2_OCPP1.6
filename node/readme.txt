@@ -1,7 +1,7 @@
 /***************************************
-ChargeNET kasun
+ChargeNET 
 Middleman Features
-08.31.2023
+09.05.2023
 
 SoM custom packages:
 Middleman 1.6
@@ -12,15 +12,14 @@ Middleman 1.6
 ****************************************/
 
 1. PAGE CHANGE of HT1622 Display------------------------
+	Description:
+		Changing the page of the ht1622 display and stay.This fucntion should called once. When the display chnages to page 73(charging), the page refresh ever 900ms taking the latest values. 
 
     > pageChange(state)
 	
 	input => state
 			integer of {66-75}
 	output => none
-	
-	Description:
-		Changing the page of the ht1622 display and stay.This fucntion should called once. When the display chnages to page 73(charging), the page refresh ever 900ms taking the latest values. 
 			
 		67,Last CHARGE  "wifi":3, "heat": 1                                      
 		68,VERIFYING    "kwh":21.1,"cost":500.00,"time":7568,"wifi":3, "heat": 1                       
@@ -32,21 +31,19 @@ Middleman 1.6
 		74,UNPLUG EV    "id":"A0990","kwh":88.9,"cost":90000.98,"time":256400,"wifi":3, "heat": 1    
 		75,ERROR        "id":"F7890","kwh":40.7,"cost":9087,"time":89769,"error":92,"wifi":3, "heat": 1 
 		76,WARNING		"id":"F0989","kwh":40.7,"cost":8907,"time":6789,"warn":2,"wifi":3, "heat": 1  		
-	
-			
-			
-			
+		
 			
 2. PAGE CHANGE of DMG Display--------------------------
-	> pageEventEmitter.emit(side,state)
-	input  => side,state
-	output =>  non
-	
 	Description:
 		emit the pageEventEmitter to chnage the page in DMG display
 		
 		note:
 			page 5 is empty page, that we can put icons on it
+			
+			
+	> pageEventEmitter.emit(side,state)
+	input  => side,state
+	output =>  non
 		
 		side
 			'newpage_Left_dmg' - left
@@ -79,30 +76,93 @@ Middleman 1.6
 				   10, SYS ERROR      page 6 , + sys error icon		
 
 
-2. READ MCU DATA---------------------------------------	
+2. READ MCU DATA---------------------------------------
+	Description:
+		Reading the laters attribites of the class DataMcu0 and DataMcu1 when ever user needed.
+			
+			note: L2 charger data should be request and get by polling L2 and FC. Any data comming from the MCU(L2 charger) through serial bus will asynchonously read and saved by the 	
+	
 	> readMCUData(mode) 
 	input  => mode 
-			'msgId0' - returns [voltage, current, power, 0]
-			'msgId1' - returns [power,ta,t2,t3]
+			'msgId0' - data under msg id0 - returns array [voltage, current, power, 0]
+			'msgId1' - data under msg id1 - returns array [power,ta,t2,t3]
+			'stateL2'- state from mcu     - returns int  
+				0 - POWER_ON
+				1 - A1
+				2 - A2
+				3 - B1
+				4 - B2
+				5 - C1
+				6 - C2
+				7 - D
+				8 - F
+				9 - TEMP_STATE_F
+														  
+			'activityState' - Network request from MCU - returns string 
+			   '000'
+				|||
+				+[0]-------- connectpr state (MSB)     
+				 +[1]------- cpPWM_active
+				  +[2]------ charging_active																			  
+														  
+			'netRequestL2' - Network request from MCU - returns string - 
+			   '0000000'
+				|||||||
+				+[0]-------- 0     (MSB)
+				 +[1]------- Update Alarm Complete
+				  +[2]------ Update Complete
+				   +[3]----- Charge Pause
+				    +[4]---- Vehicle Check
+				     +[5]--- Shedule Charge
+					  +[6]-- Stop Charge
+					   +[7]- Start (LSB)
+			
+			'powerErrorL2' - Powerside Error from MCU - returns string - 
+			   '0000000'
+				|||||||
+				+[0]-------- trip_GFI---------- Ground Fault
+				 +[1]------- trip_OC_L1-------- Over Current Fault
+				  +[2]------ error_GFI_test---- GFI Test Failed
+				   +[3]----- error_SR_C-------- Stuck Contactor Error
+				    +[4]---- error_SR_N-------- Not used
+				     +[5]--- error_SR_L1------- Not used
+					  +[6]-- error_UV_L1------- Under Voltage Error
+					   +[7]- error_OV_L1------- Over Voltage Error   
+			                                                    
 			
 	output => [value1, value2, value3, value4] all value elemnts ae string.
 	
 	
-	Description:
-		Reading the laters attribites of the class DataMcu0 and DataMcu1 when ever user needed.
-			
-			note: L2 charger data should be request and get by polling L2 and FC. Any data comming from the MCU(L2 charger) through serial bus will asynchonously read and saved by the 
 		
 		 
 
-3. WRITE MCU DATA---------------------------------------	
-   > writeMCUData(controller,state)	
+3. WRITE MCU DATA---------------------------------------
+	Description:
+		Writing to the mcu. This function is used to poll both L2 and FC. 
+		Eventhough there is only L2 charger, the polling happens. 
+		MCU only reply with it state and data, when stamp requested data by writing this function 
+			to serial bus 1
+		
+   > writeMCUData(controller,state,stopCharge)	
 	
-	input => 				
+	input =>  	
+		controller 
+			'M' - L2 charger
+			'm' - Fast Charger
+		
+		state
+			'IDLE' - Idel State
+			'PRE_START' - Pre start state
+			'START' - Start Charge
+			'STOP' - Stop Charge
+		
+		stopCharge
+			0 - No stopping charge
+			1 - Stop Charge !!
+			
 	output => if successful 0
 	
-	Description:
-		Writing to the mcu. 
+	
 		
 	
 			  
@@ -168,7 +228,8 @@ Middleman 1.6
 		Stop blinking
 			clearInterval(blinkLed);
 
-6. Network data save
+6. Network data save 
+   When we only have a L2 , still use this to save network data
 
 	Left (L2)____________________________
 	cid - charger ID
