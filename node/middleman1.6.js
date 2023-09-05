@@ -357,8 +357,8 @@ class tap {
 var newTap = new tap(0,'');
 
 
-function writeMCUData(controller,msg){
-	return obj.mcuMsgEncode(controller,msg,portS1,parserFixLen)
+function writeMCUData(controller,msg,stopCharge){
+	return obj.mcuMsgEncode(controller,msg,stopCharge,portS1,parserFixLen)
 }
 
 

@@ -181,6 +181,32 @@ const readLineAsync = msg => {
   });
 }
 
+async function controllerPolling(){
+	//console.log(middleman.newTap.getTapString());
+	
+	middleman.writeMCUData('M','IDLE',0);
+	//middleman.writeMCUData('m','A');
+	
+	//console.log(middleman.readMCUData('msgId0'))
+	//console.log(middleman.readMCUData('msgId1'))
+	
+	if( newLeft !=  dmgSide.myLeft){
+		
+		pageEventEmitter.emit('newpage_Left_dmg',newLeft)
+	}
+	
+	if(newRight !=  dmgSide.myRight){
+		
+		pageEventEmitter.emit('newpage_Right_dmg',newRight)
+	}
+	
+	console.log('MCU state: ',middleman.readMCUData('stateL2'))
+	console.log('MCU activity state: ',middleman.readMCUData('activityState'))
+	console.log('Network Request: ',middleman.readMCUData('netRequestL2'))
+	console.log('Power Error: ',middleman.readMCUData('powerErrorL2'))
+	
+}
+
 
 //====================================
 //Initialization 
@@ -193,7 +219,7 @@ var pushButton = new middleman.gpio()
 
 gpioTest();
 
-
+let controllerPollingID = setInterval(()=>controllerPolling(),500);
 
 
 
@@ -234,7 +260,7 @@ var dataR = new NetworkDataRIGHT(9999,99,999,3450.7,67,567.8,"ABCD","ABCDEFGHIJK
 
 var dmgSide= new mySide(0,0);
 
-let controllerPollingID = setInterval(()=>controllerPolling(),500);
+
 
 let completeLscreen = middleman.pageUpdateDMG('L', parseInt(dmgSide.myLeft), dataL, dataR);
 let completeRscreen = middleman.pageUpdateDMG('R', parseInt(dmgSide.myRight), dataL, dataR);
@@ -298,28 +324,7 @@ pageEventEmitter.on('newpage_Right_dmg', async function(newRight) {
 	//console.log("wrote R page")
 })
 
-async function controllerPolling(){
-	//console.log(middleman.newTap.getTapString());
-	
-	middleman.writeMCUData('M','A');
-	//middleman.writeMCUData('m','A');
-	
-	//console.log(middleman.readMCUData('msgId0'))
-	//console.log(middleman.readMCUData('msgId1'))
-	
-	if( newLeft !=  dmgSide.myLeft){
-		
-		pageEventEmitter.emit('newpage_Left_dmg',newLeft)
-	}
-	
-	if(newRight !=  dmgSide.myRight){
-		
-		pageEventEmitter.emit('newpage_Right_dmg',newRight)
-	}
-	
-	//console.log(middleman.readMCUData('stateL2'))
-	
-}
+
 
 /*Graceful kill*/
 process.on('SIGINT', die);
