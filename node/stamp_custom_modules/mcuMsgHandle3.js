@@ -44,11 +44,12 @@ class  DataMcuM1{
 };
 
 class StateMcu{
-	constructor(state,activityState,netRequest,powerError){
+	constructor(state,activityState,netRequest,powerError,generalError){
 		this.state = state
 		this.activityState = activityState
 		this.netRequest = netRequest
 		this.powerError = powerError
+		this.generalError = generalError
 	}
 	getState(){
 		return this.state
@@ -62,12 +63,15 @@ class StateMcu{
 	getpowerError(){
 		return this.powerError
 	}
+	getGeneralError(){
+		return this.generalError
+	}
 	
 }
 
 var mcuDataM0 = new DataMcuM0(0.0,0.0,0.0);
 var mcuDataM1 = new DataMcuM1(0.0,0,0,0);
-var mcuStateL2 = new StateMcu(0,'000','00000000','00000000');
+var mcuStateL2 = new StateMcu(0,'000','00000000','00000000','00');
 
 
 /*
@@ -82,8 +86,7 @@ dataBufIn      43 c4 20 02 00 00 00 00 01 00 00 9e 0a 00 00
                C  |     |        |      
                   +L2 Controler side State  			   
                         +Networkside request 
-                                 +Power side error  
-                                 
+                                 +Power side error               
                           
 */ 
 function mcuMsgDecode(buf){
@@ -91,6 +94,7 @@ function mcuMsgDecode(buf){
 	
 	try{
 		if(totalBufIn.slice(0,1).toString('hex') == '23'){
+			mcuStateL2.generalError = '0'+mcuStateL2.getGeneralError()[1];
 			checksmIn = conv.hexToDec(totalBufIn.slice(16,18).swap16().toString('hex'));
 			dataBufIn = totalBufIn.slice(1,16);
 			msgIdIn = conv.hexToDec(totalBufIn.slice(9,10).toString('hex'));
@@ -246,11 +250,18 @@ function getMCUData(what){
 			return mcuStateL2.getNetRequet();break;
 		case 'powerErrorL2':
 			return mcuStateL2.getpowerError();break;
+		case 'genErrorL2':
+			return mcuStateL2.getGeneralError();break;
 		
 		default :
 			return [0,0,0,0];break;
 			
 	}
 }
+
+//checking serial errors  4 sec interval
+let serialIncheckID = setInterval(()=>{
+	mcuStateL2.generalError = '1'+mcuStateL2.getGeneralError()[1];
+	},4000);
 
 module.exports = {mcuMsgDecode,mcuMsgEncode,getMCUData};

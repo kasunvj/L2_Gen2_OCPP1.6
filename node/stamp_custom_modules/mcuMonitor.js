@@ -1,6 +1,8 @@
 var objmcu = require("./mcuMsgHandle3");
+var objnet = require("./networkCheck");
+var ping = 0;
 //https://en.m.wikipedia.org/wiki/ANSI_escape_code#Colors
-function monitor(charger){
+function monitor(charger,netSt){
 	let date_ob = new Date();
 	// current date
 	// adjust 0 before single digit date
@@ -18,7 +20,7 @@ function monitor(charger){
 			var activityState = objmcu.getMCUData('activityState');
 			var netRequest = objmcu.getMCUData('netRequestL2');
 			var err = objmcu.getMCUData('powerErrorL2');
-			
+			var genErr = objmcu.getMCUData('genErrorL2');
 			
 			console.log()
 			console.log('\x1b[33m'+year+"-"+month+"-"+date+" "+hours+":"+minutes+":"+seconds+"----- \x1b[0m")
@@ -45,7 +47,19 @@ function monitor(charger){
 			else
 				stateName = 'State Error'
 			
-			console.log("State     : "+state+'\x1b[94m '+stateName+'\x1b[0m')
+			if(netSt == 'IDLE')
+				console.log('Network State   : [*] IDLE [ ] PRE_START [ ] START [ ] STOP  \x1b[0m')
+			else if(netSt == 'PRE_START')
+				console.log('Network State   : [ ] IDLE [*] PRE_START [ ] START [ ] STOP  \x1b[0m')
+			else if(netSt == 'START')
+				console.log('Network State   : [ ] IDLE [ ] PRE_START [*] START [ ] STOP  \x1b[0m')
+			else if(netSt == 'STOP')
+				console.log('Network State   : [ ] IDLE [ ] PRE_START [ ] START [*] STOP  \x1b[0m')
+			else
+				console.log(netSt)
+				console.log('Network State   : [ ] IDLE [ ] PRE_START [ ] START [ ] STOP  \x1b[0m')
+			
+			console.log("Charger State   : "+state+'\x1b[94m '+stateName+'\x1b[0m')
 			
 			console.log("\x1b[32mL2 Activity state : \x1b[0m")
 			console.log("  Connector State:",activityState[0])
@@ -86,12 +100,20 @@ function monitor(charger){
 			if(err[7]=='1')
 				console.log("\x1b[91m  Over Voltage Error\x1b[0m")
 			
-			
-			
-			
+			console.log("\x1b[32mL2 General Error   :\x1b[0m")
+			if(genErr[0] == '1')
+				console.log("\x1b[91m L2 is not communicating via serial1 bus\x1b[0m")
+			if(genErr[1] == '1')
+				console.log("\x1b[91m Some error \x1b[0m")
+			if(ping == 0)
+				console.log("\x1b[91m Network unavilable \x1b[0m")
 			
 			break;
 	}
 	
 }
+
+let serialIncheckID = setInterval(()=>{
+	ping = objnet.netwrokStatusGet()
+	},4000);
 module.exports = {monitor}

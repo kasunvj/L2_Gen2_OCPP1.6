@@ -127,7 +127,14 @@ Middleman 1.6
 				    +[4]---- error_SR_N-------- Not used
 				     +[5]--- error_SR_L1------- Not used
 					  +[6]-- error_UV_L1------- Under Voltage Error
-					   +[7]- error_OV_L1------- Over Voltage Error   
+					   +[7]- error_OV_L1------- Over Voltage Error  
+
+			'genErrorL2' - Powerside Error from MCU - returns string - 
+						   '00'
+							||
+							+[0]-------- Serial absent from L2
+							 +[1]------- Network unavilable
+							   					   
 			                                                    
 			
 	output => [value1, value2, value3, value4] all value elemnts ae string.
