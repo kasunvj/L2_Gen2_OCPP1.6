@@ -14,6 +14,7 @@ from Inputs Tap Card     -- USB Serial    ACM0
 
 */
 const middleman = require('./middleman1.6');
+
 const readline = require('readline').createInterface({
   input: process.stdin,
   output: process.stdout
@@ -184,7 +185,7 @@ const readLineAsync = msg => {
 async function controllerPolling(){
 	//console.log(middleman.newTap.getTapString());
 	
-	middleman.writeMCUData('M','IDLE',0);
+	middleman.writeMCUData('M','START',0);
 	//middleman.writeMCUData('m','A');
 	
 	//console.log(middleman.readMCUData('msgId0'))
@@ -200,10 +201,10 @@ async function controllerPolling(){
 		pageEventEmitter.emit('newpage_Right_dmg',newRight)
 	}
 	
-	console.log('MCU state: ',middleman.readMCUData('stateL2'))
-	console.log('MCU activity state: ',middleman.readMCUData('activityState'))
-	console.log('Network Request: ',middleman.readMCUData('netRequestL2'))
-	console.log('Power Error: ',middleman.readMCUData('powerErrorL2'))
+	//console.log('MCU state: ',middleman.readMCUData('stateL2'))
+	//console.log('MCU activity state: ',middleman.readMCUData('activityState'))
+	//console.log('Network Request: ',middleman.readMCUData('netRequestL2'))
+	//console.log('Power Error: ',middleman.readMCUData('powerErrorL2'))
 	
 }
 
@@ -221,7 +222,7 @@ gpioTest();
 
 let controllerPollingID = setInterval(()=>controllerPolling(),500);
 
-
+let monitorID = setInterval(()=>middleman.mcuMonitor('M'),500);
 
 
 

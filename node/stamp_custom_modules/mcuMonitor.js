@@ -1,0 +1,97 @@
+var objmcu = require("./mcuMsgHandle3");
+//https://en.m.wikipedia.org/wiki/ANSI_escape_code#Colors
+function monitor(charger){
+	let date_ob = new Date();
+	// current date
+	// adjust 0 before single digit date
+	let date = ("0" + date_ob.getDate()).slice(-2);
+	let month = ("0" + (date_ob.getMonth() + 1)).slice(-2);
+	let year = date_ob.getFullYear();
+	let hours = date_ob.getHours();
+	let minutes = date_ob.getMinutes();
+	let seconds = date_ob.getSeconds();
+	
+	switch (charger){
+		case 'M':
+			var state = objmcu.getMCUData('stateL2');
+			var stateName= '';
+			var activityState = objmcu.getMCUData('activityState');
+			var netRequest = objmcu.getMCUData('netRequestL2');
+			var err = objmcu.getMCUData('powerErrorL2');
+			
+			
+			console.log()
+			console.log('\x1b[33m'+year+"-"+month+"-"+date+" "+hours+":"+minutes+":"+seconds+"----- \x1b[0m")
+			if (state == 0)
+				stateName = 'POWER ON'
+			else if (state == 1)
+				stateName = 'A1'
+			else if (state == 2)
+				stateName = 'A2'
+			else if (state == 3)
+				stateName = 'B1'
+			else if (state == 4)
+				stateName = 'B2'
+			else if (state == 5)
+				stateName = 'C1'
+			else if (state == 6)
+				stateName = 'C2'
+			else if (state == 7)
+				stateName = 'D'
+			else if (state == 8)
+				stateName = 'F'
+			else if (state == 9)
+				stateName = 'TEMP_STATE_F'
+			else
+				stateName = 'State Error'
+			
+			console.log("State     : "+state+'\x1b[94m '+stateName+'\x1b[0m')
+			
+			console.log("\x1b[32mL2 Activity state : \x1b[0m")
+			console.log("  Connector State:",activityState[0])
+			console.log("  CpPWM active   :",activityState[1])
+			console.log("  Charging active:",activityState[2])
+			
+			console.log("\x1b[32mL2 Network  Request :\x1b[0m")
+			if(netRequest[1]=='1')
+				console.log("\x1b[96m  Update Alarm Complete \x1b[0m")
+			if(netRequest[2]=='1')
+				console.log("\x1b[96m  Update Complete \x1b[0m")
+			if(netRequest[3]=='1')
+				console.log("\x1b[96m  Charge Pause \x1b[0m")
+			if(netRequest[4]=='1')
+				console.log("\x1b[96m  Vehicle Check \x1b[0m")
+			if(netRequest[5]=='1')
+				console.log("\x1b[96m  Shedule Charge \x1b[0m")
+			if(netRequest[6]=='1')
+				console.log("\x1b[96m  Stop Charge \x1b[0m")
+			if(netRequest[7]=='1')
+				console.log("\x1b[96m  Start \x1b[0m")
+			
+			console.log("\x1b[32mL2 Error States   :\x1b[0m")
+			if(err[0]=='1')
+				console.log("\x1b[91m  Ground Fault\x1b[0m")
+			if(err[1]=='1')
+				console.log("\x1b[91m  Over Current Fault\x1b[0m")
+			if(err[2]=='1')
+				console.log("\x1b[91m  GFI Test Failed\x1b[0m")
+			if(err[3]=='1')
+				console.log("\x1b[91m  Stuck Contactor Error\x1b[0m")
+			if(err[4]=='1')
+				console.log("\x1b[91m  Not used\x1b[0m")
+			if(err[5]=='1')
+				console.log("\x1b[91m  Not used\x1b[0m")
+			if(err[6]=='1')
+				console.log("\x1b[91m  Under Voltage Error\x1b[0m")
+			if(err[7]=='1')
+				console.log("\x1b[91m  Over Voltage Error\x1b[0m")
+			
+			
+			
+			
+			
+			break;
+	}
+	
+}
+module.exports = {monitor}
