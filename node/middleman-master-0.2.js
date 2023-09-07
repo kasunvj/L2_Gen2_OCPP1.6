@@ -23,6 +23,7 @@ var EventEmitter = require('events');
 var pageEventEmitter = new EventEmitter();
 var newLeft = 0;
 var newRight = 0;
+const fs = require('fs');
 
 class mySide{
 	constructor(myLeft,myRight){
@@ -59,13 +60,15 @@ cProfile - User Charging profile
 */
 
 class NetworkDataLEFT{
-	constructor(cid,lastChargePt,lastTime,lastCost,chargerPower,chargerPrice){
+	constructor(cid,lastChargePt,lastTime,lastCost,chargerPower,chargerPrice,stateL2){
 		this.cid = cid;
 		this.lastChargePt = lastChargePt;
 		this.lastTime = lastTime;
 		this.lastCost = lastCost;
 		this.chargerPower = chargerPower;
 		this.chargerPrice = chargerPrice;
+		this.stateL2 = stateL2;
+		
 		
     }
 	getData(){
@@ -77,6 +80,7 @@ class NetworkDataLEFT{
 	getlastCost(){return this.lastCost;}
 	getchargerPower(){return this.chargerPower;}
 	getchargerPrice(){return this.chargerPrice;}
+	getStateL2(){return this.stateL2;}
 	
 		
 };
@@ -185,11 +189,19 @@ const readLineAsync = msg => {
 async function controllerPolling(){
 	//console.log(middleman.newTap.getTapString());
 	
-	middleman.writeMCUData('M','START',0);
+	fs.readFile('net-state.txt', 'utf8', (err, data) => {
+	  if (err) {
+		console.error(err);
+		return;
+	  }
+	  dataL.stateL2 = data;
+	  console.log(data)
+	  console.log(dataL.getStateL2())
+	});
+	
+	middleman.writeMCUData('M',dataL.getStateL2(),0);
 	//middleman.writeMCUData('m','A');
 	
-	//console.log(middleman.readMCUData('msgId0'))
-	//console.log(middleman.readMCUData('msgId1'))
 	
 	if( newLeft !=  dmgSide.myLeft){
 		
@@ -222,7 +234,7 @@ gpioTest();
 
 let controllerPollingID = setInterval(()=>controllerPolling(),500);
 
-let monitorID = setInterval(()=>middleman.mcuMonitor('M'),500);
+let monitorID = setInterval(()=>middleman.mcuMonitor('M','IDLE'),1000);
 
 
 
@@ -256,7 +268,7 @@ charging mode
 ---------------------------------------*/
 
 
-var dataL = new NetworkDataLEFT(9999,98,999,567.8,87,235.5);
+var dataL = new NetworkDataLEFT(9999,98,999,567.8,87,235.5,'IDLE');
 var dataR = new NetworkDataRIGHT(9999,99,999,3450.7,67,567.8,"ABCD","ABCDEFGHIJKL",199.99,1);
 
 var dmgSide= new mySide(0,0);
