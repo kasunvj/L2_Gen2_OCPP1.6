@@ -140,7 +140,7 @@ Middleman 1.6
 	output => [value1, value2, value3, value4] all value elemnts ae string.
 	
 	
-		
+	 c 	
 		 
 
 3. WRITE MCU DATA---------------------------------------
