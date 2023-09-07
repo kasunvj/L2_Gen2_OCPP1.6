@@ -14,6 +14,7 @@ from Inputs Tap Card     -- USB Serial    ACM0
 
 */
 const middleman = require('./middleman1.6');
+
 const readline = require('readline').createInterface({
   input: process.stdin,
   output: process.stdout
@@ -22,6 +23,7 @@ var EventEmitter = require('events');
 var pageEventEmitter = new EventEmitter();
 var newLeft = 0;
 var newRight = 0;
+const fs = require('fs');
 
 class mySide{
 	constructor(myLeft,myRight){
@@ -32,20 +34,41 @@ class mySide{
 
 
 /*
+
+Save all data from the network related to L2 charger on  NetworkDataLEFT
+_NetworkDataLEFT_____________________
 cid - charger ID
 lastChargePt - Last Charge Percentage
 lastTime - Last Charge Time
 lastCost - Last Charge Cost
 chargerPower - Last Charge Power
-chargerPrice - Charger Price Per KWh*/
+chargerPrice - Charger Price Per KWh
+
+
+Save all data from the network related to GB/T charger on  NetworkDataRIGHT
+_NetworkDataLEFT_____________________
+cid - charger ID
+lastChargePt - Last Charge Percentage
+lastTime - Last Charge Time
+lastCost - Last Charge Cost
+chargerPower - Last Charge Power
+chargerPrice - Charger Price Per KWh
+unameFirst - UserName First
+unameRight - User Name Last
+ubal - User Balance
+cProfile - User Charging profile 
+*/
+
 class NetworkDataLEFT{
-	constructor(cid,lastChargePt,lastTime,lastCost,chargerPower,chargerPrice){
+	constructor(cid,lastChargePt,lastTime,lastCost,chargerPower,chargerPrice,stateL2){
 		this.cid = cid;
 		this.lastChargePt = lastChargePt;
 		this.lastTime = lastTime;
 		this.lastCost = lastCost;
 		this.chargerPower = chargerPower;
 		this.chargerPrice = chargerPrice;
+		this.stateL2 = stateL2;
+		
 		
     }
 	getData(){
@@ -57,6 +80,7 @@ class NetworkDataLEFT{
 	getlastCost(){return this.lastCost;}
 	getchargerPower(){return this.chargerPower;}
 	getchargerPrice(){return this.chargerPrice;}
+	getStateL2(){return this.stateL2;}
 	
 		
 };
@@ -107,14 +131,13 @@ function sleep(ms) {
   });
 }
 
-
 async function gpioTest(){
 	
 	await led.create(5,'out',0);
 	/*Push button is taken from reading the /proc/gpio_intr 
 	  No need to initate it then
 	*/
-	//await pushButton .create(4,'in',0);
+	await pushButton.create(4,'in',0);
 	
 	
 	middleman.pageChange(73);
@@ -125,15 +148,18 @@ async function gpioTest(){
 	
 	while(1){
 		
-		//if(await pushButton.isPressed()){
-		//	console.log("*")
-		//	await delay(500);
-		//}
+		if(await pushButton.isPressed()){
+			console.log("*")
+			await delay(500);
+		}
 		
 		
-		newLeft = parseInt(await readLineAsync("Page L(0-5)?"));
-		newRight = parseInt(await readLineAsync("Page R(0-6)?"));
+		//newLeft = parseInt(await readLineAsync("Page L(0-5)?"));
+		//newRight = parseInt(await readLineAsync("Page R(0-6)?"));
 		//console.log("Your response was: " +parseInt(dmgSide.myLeft) +" "+parseInt(dmgSide.myRight));
+		
+		
+		
 		}
 		
 	
@@ -141,32 +167,6 @@ async function gpioTest(){
 	//clearInterval(blinkLed);
 	//led.off();
 }
-
-
-async function controllerPolling(){
-	//console.log(middleman.newTap.getTapString());
-	
-	middleman.writeMCUData('M','A');
-	//middleman.writeMCUData('m','A');
-	
-	//console.log(middleman.readMCUData('msgId0'))
-	//console.log(middleman.readMCUData('msgId1'))
-	
-	if( newLeft !=  dmgSide.myLeft){
-		
-		pageEventEmitter.emit('newpage_Left_dmg',newLeft)
-	}
-	
-	if(newRight !=  dmgSide.myRight){
-		
-		pageEventEmitter.emit('newpage_Right_dmg',newRight)
-	}
-	
-}
-
-
-
-
 
 async function die(){
 	let exit = await led.unexport()
@@ -186,6 +186,40 @@ const readLineAsync = msg => {
   });
 }
 
+async function controllerPolling(){
+	//console.log(middleman.newTap.getTapString());
+	
+	fs.readFile('net-state.txt', 'utf8', (err, data) => {
+	  if (err) {
+		console.error(err);
+		return;
+	  }
+	  dataL.stateL2 = data;
+	  console.log(data)
+	  console.log(dataL.getStateL2())
+	});
+	
+	middleman.writeMCUData('M',dataL.getStateL2(),0);
+	//middleman.writeMCUData('m','A');
+	
+	
+	if( newLeft !=  dmgSide.myLeft){
+		
+		pageEventEmitter.emit('newpage_Left_dmg',newLeft)
+	}
+	
+	if(newRight !=  dmgSide.myRight){
+		
+		pageEventEmitter.emit('newpage_Right_dmg',newRight)
+	}
+	
+	//console.log('MCU state: ',middleman.readMCUData('stateL2'))
+	//console.log('MCU activity state: ',middleman.readMCUData('activityState'))
+	//console.log('Network Request: ',middleman.readMCUData('netRequestL2'))
+	//console.log('Power Error: ',middleman.readMCUData('powerErrorL2'))
+	
+}
+
 
 //====================================
 //Initialization 
@@ -195,6 +229,18 @@ const readLineAsync = msg => {
 
 var led =new middleman.gpio()
 var pushButton = new middleman.gpio()
+
+gpioTest();
+
+let controllerPollingID = setInterval(()=>controllerPolling(),500);
+
+let monitorID = setInterval(()=>middleman.mcuMonitor('M','IDLE'),1000);
+
+
+
+
+//+ GBT  ------------------------------------------------------------------------------------------------------------------
+
 /*-------------------------------------
 Left (L2)____________________________
 cid - charger ID
@@ -220,14 +266,14 @@ charging mode
 	3 - to 15 mins
 	4 - to 30 mins
 ---------------------------------------*/
-var dataL = new NetworkDataLEFT(9999,98,999,567.8,87,235.5);
+
+
+var dataL = new NetworkDataLEFT(9999,98,999,567.8,87,235.5,'IDLE');
 var dataR = new NetworkDataRIGHT(9999,99,999,3450.7,67,567.8,"ABCD","ABCDEFGHIJKL",199.99,1);
 
 var dmgSide= new mySide(0,0);
 
-gpioTest()
 
-let controllerPollingID = setInterval(()=>controllerPolling(),500);
 
 let completeLscreen = middleman.pageUpdateDMG('L', parseInt(dmgSide.myLeft), dataL, dataR);
 let completeRscreen = middleman.pageUpdateDMG('R', parseInt(dmgSide.myRight), dataL, dataR);

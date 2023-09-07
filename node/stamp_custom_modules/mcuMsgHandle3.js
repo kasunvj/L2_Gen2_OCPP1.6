@@ -12,6 +12,8 @@ var checksmIn = Buffer.alloc(2);
 var msgIdIn = 0;
 var totalBufOut = Buffer.alloc(20);
 var selectContBufOut = Buffer.alloc(1);
+var stateCommand = Buffer.alloc(1);
+var stopCharge = Buffer.alloc(1);
 var dataBufOut = Buffer.alloc(14);
 var checksmOut = Buffer.alloc(2);
 
@@ -41,28 +43,81 @@ class  DataMcuM1{
 			}
 };
 
+class StateMcu{
+	constructor(state,activityState,netRequest,powerError,generalError){
+		this.state = state
+		this.activityState = activityState
+		this.netRequest = netRequest
+		this.powerError = powerError
+		this.generalError = generalError
+	}
+	getState(){
+		return this.state
+	}
+	getActivityState(){
+		return this.activityState
+	}
+	getNetRequet(){
+		return this.netRequest
+	}
+	getpowerError(){
+		return this.powerError
+	}
+	getGeneralError(){
+		return this.generalError
+	}
+	
+}
+
 var mcuDataM0 = new DataMcuM0(0.0,0.0,0.0);
 var mcuDataM1 = new DataMcuM1(0.0,0,0,0);
+var mcuStateL2 = new StateMcu(0,'000','00000000','00000000','00');
 
 
 /*
 This fucntion updates class DataMcuM0 and DataMcuM1
 
 Input = 20 byte serial input as a buffer
+            0  1  2  3  4  5  6  7  8  9  10 11 12 13 14 15 16 17 18 19
+totalBufIn  23 43 c4 20 02 00 00 00 00 01 00 00 a1 0a 00 00 13 13 2a 0a
 
-
-*/
+               0  1  2  3  4  5  6  7  8  9  10 11 12 13 14
+dataBufIn      43 c4 20 02 00 00 00 00 01 00 00 9e 0a 00 00
+               C  |     |        |      
+                  +L2 Controler side State  			   
+                        +Networkside request 
+                                 +Power side error               
+                          
+*/ 
 function mcuMsgDecode(buf){
 	totalBufIn = buf;
 	
 	try{
 		if(totalBufIn.slice(0,1).toString('hex') == '23'){
+			mcuStateL2.generalError = '0'+mcuStateL2.getGeneralError()[1];
 			checksmIn = conv.hexToDec(totalBufIn.slice(16,18).swap16().toString('hex'));
 			dataBufIn = totalBufIn.slice(1,16);
 			msgIdIn = conv.hexToDec(totalBufIn.slice(9,10).toString('hex'));
-			//console.log(dataBufIn);
+			
+			//console.log('In:          #  C  ST *  NR *  *  PE *  MG V1 -- V2 -- V3 -- CR C- *  n')
+			//console.log('In: ',totalBufIn);
+			
+			
 			if(conv.hexToDec(crc16('MODBUS',dataBufIn).toString(16)) == checksmIn){
 				//console.log("CRC PASSED");
+				
+				//Extracting L2 State
+				var decimalVal = parseInt(conv.hexToDec(dataBufIn.slice(1,2).toString('hex')))
+				mcuStateL2.state = bin2dec(dec2bin(decimalVal).slice(3,8));
+				mcuStateL2.activityState = dec2bin(decimalVal).slice(0,3)
+				
+				//Extracting L2 networkside request
+				mcuStateL2.netRequest = dec2bin(parseInt(conv.hexToDec(dataBufIn.slice(3,4).toString('hex'))))
+				
+				//Extracting L2 Powerside error
+				mcuStateL2.powerError = dec2bin(parseInt(conv.hexToDec(dataBufIn.slice(6,7).toString('hex'))))
+				
+				//Extrcting L2 messages by id
 				if(msgIdIn == 0){
 					mcuDataM0.volt = conv.hexToDec(totalBufIn.slice(10,12).swap16().toString('hex'));
 					mcuDataM0.curr = conv.hexToDec(totalBufIn.slice(12,14).swap16().toString('hex'));
@@ -91,7 +146,16 @@ function mcuMsgDecode(buf){
 	return 0;
 }
 
-function mcuMsgEncode(controller,state,port,parser){
+function dec2bin(n){
+	return n.toString(2).padStart(8,'0')
+}
+
+function bin2dec(binStr){
+	return parseInt(binStr,2)
+}
+
+
+function mcuMsgEncode(controller,state,stopC,port,parser){
 	
 	
 	switch(controller){
@@ -103,19 +167,29 @@ function mcuMsgEncode(controller,state,port,parser){
 	
 	switch(state){
 		/*construct 14 bytes*/
-		case 'A':dataBufOut = Buffer.from([0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00]);break;
-		case 'B':dataBufOut = Buffer.from([0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00]);break;
-		case 'C':dataBufOut = Buffer.from([0x43,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00]);break;
-		case 'D':dataBufOut = Buffer.from([0x44,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00]);break;
-		case 'E':dataBufOut = Buffer.from([0x45,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00]);break;
-		case 'F':dataBufOut = Buffer.from([0x46,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00]);break;
-		default:dataBufOut = Buffer.from([0x46,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00]);break;
+		case 'IDLE':stateCommand  = Buffer.from([0x02]);break;
+		case 'PRE_START':stateCommand = Buffer.from([0x04]);break;
+		case 'START':stateCommand = Buffer.from([0x05]);break;
+		case 'STOP':stateCommand  = Buffer.from([0x06]);break;
+		default:stateCommand  = Buffer.from([0x00]);break;
 	}
+	
+	switch(stopC){
+		case 0 : stopCharge = Buffer.from([0x00]);break;
+		case 1 : stopCharge = Buffer.from([0x01]);break;
+		default: stopCharge = Buffer.from([0x00]);break;
+	}
+	
+	dataBufOut = Buffer.concat([stateCommand,stopCharge,Buffer.from([0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00])],14)
+	
 	
 	/*Get the checksm of 15 bytes of msg. starting from C----- */
 	checksmOut = crc16('MODBUS',Buffer.concat([selectContBufOut,dataBufOut],15));
 	totalBufOut= Buffer.concat([Buffer.from([0x23]),selectContBufOut,dataBufOut, Buffer.from(checksmOut.toString(16).padStart(4,'0'),'hex').swap16(),Buffer.from([0x2a,0x0a])],20);
-	//console.log("Req data from L2(M): ", totalBufOut);
+	
+	//console.log('Out:          #  M  ST SP *  *  *  *  *  *  *  *  *  *  *  *  CR C- *  n')
+	//console.log("Out: ", totalBufOut);
+	
 	try{
 		port.write(totalBufOut, function(err) {
 			if (err) {
@@ -168,10 +242,26 @@ function getMCUData(what){
 			return mcuDataM0.getData();break;
 		case 'msgId1':
 			return mcuDataM1.getData();break;
+		case 'stateL2' :
+			return mcuStateL2.getState();break;
+		case 'activityState':
+			return mcuStateL2.getActivityState();break;
+		case 'netRequestL2':
+			return mcuStateL2.getNetRequet();break;
+		case 'powerErrorL2':
+			return mcuStateL2.getpowerError();break;
+		case 'genErrorL2':
+			return mcuStateL2.getGeneralError();break;
+		
 		default :
 			return [0,0,0,0];break;
 			
 	}
 }
+
+//checking serial errors  4 sec interval
+let serialIncheckID = setInterval(()=>{
+	mcuStateL2.generalError = '1'+mcuStateL2.getGeneralError()[1];
+	},4000);
 
 module.exports = {mcuMsgDecode,mcuMsgEncode,getMCUData};
