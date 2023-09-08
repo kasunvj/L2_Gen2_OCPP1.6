@@ -140,8 +140,11 @@ function readMCU(){
 function updateNet(){
 	//console.log('open-net');
 	networkConnectivity = objNet.netwrokStatusGet();
-	networkStrength = objNet.networkStrengthGet();
-	//console.log(networkStrength)
+	/*
+	if the system is using wifi = 'WIFI'
+	                         4G = '4G'
+	*/
+	networkStrength = objNet.networkStrengthGet('WIFI');
 }
 
 function updateDisplay(displayState,id){
