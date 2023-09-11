@@ -195,8 +195,6 @@ async function controllerPolling(){
 		return;
 	  }
 	  dataL.stateL2 = data;
-	  console.log(data)
-	  console.log(dataL.getStateL2())
 	});
 	
 	middleman.writeMCUData('M',dataL.getStateL2(),0);
@@ -234,7 +232,7 @@ gpioTest();
 
 let controllerPollingID = setInterval(()=>controllerPolling(),500);
 
-let monitorID = setInterval(()=>middleman.mcuMonitor('M','IDLE'),1000);
+let monitorID = setInterval(()=>middleman.mcuMonitor('M',dataL.getStateL2()),1000);
 
 
 

@@ -346,8 +346,8 @@ function readMCUData(mode){
 	return obj.getMCUData(mode)
 }
 
-function mcuMonitor(control){
-	mymonitor.monitor(control)
+function mcuMonitor(control,st){
+	mymonitor.monitor(control,st)
 }
 
 class tap {
