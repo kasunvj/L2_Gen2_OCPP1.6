@@ -189,12 +189,13 @@ const readLineAsync = msg => {
 async function controllerPolling(){
 	//console.log(middleman.newTap.getTapString());
 	
-	fs.readFile('net-state.txt', 'utf8', (err, data) => {
+	fs.readFile('net-state.json', 'utf8', (err, data) => {
 	  if (err) {
 		console.error(err);
 		return;
 	  }
-	  dataL.stateL2 = data;
+	  dataL.stateL2 = JSON.parse(data).net_state;
+	  console.log(dataL.stateL2)
 	});
 	
 	middleman.writeMCUData('M',dataL.getStateL2(),0);

@@ -63,6 +63,9 @@ var timetillfullNow = Buffer.alloc(2);
 var currNow = Buffer.alloc(2);
 var voltNow = Buffer.alloc(2);
 
+var EventEmitter = require('events');
+var L2dataEmitter = new EventEmitter();
+
 //========================================
 //Internal function used by this module
 //========================================
@@ -129,6 +132,7 @@ function readMCU(){
 	console.log('opened');
 	parserFixLen.on('data', function(data){
 		if(obj.mcuMsgDecode(data) == 0){ 
+			L2dataEmitter.emit('data',obj.mcuDataM0,obj.mcuDataM1,obj.mcuStateL2)
 			//nothing to be  done, calling mcuMsgDecode also save latest values
 			//and update values that uses for DMG Display
 			//updateDisplayDMG(liveDMGLeft,liveDMGLeft);
