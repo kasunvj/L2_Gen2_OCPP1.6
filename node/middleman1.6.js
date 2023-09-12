@@ -63,6 +63,9 @@ var timetillfullNow = Buffer.alloc(2);
 var currNow = Buffer.alloc(2);
 var voltNow = Buffer.alloc(2);
 
+var EventEmitter = require('events');
+var L2dataEmitter = new EventEmitter();
+
 //========================================
 //Internal function used by this module
 //========================================
@@ -129,6 +132,7 @@ function readMCU(){
 	console.log('opened');
 	parserFixLen.on('data', function(data){
 		if(obj.mcuMsgDecode(data) == 0){ 
+			L2dataEmitter.emit('data',obj.mcuDataM0,obj.mcuDataM1,obj.mcuStateL2)
 			//nothing to be  done, calling mcuMsgDecode also save latest values
 			//and update values that uses for DMG Display
 			//updateDisplayDMG(liveDMGLeft,liveDMGLeft);
@@ -140,8 +144,11 @@ function readMCU(){
 function updateNet(){
 	//console.log('open-net');
 	networkConnectivity = objNet.netwrokStatusGet();
-	networkStrength = objNet.networkStrengthGet();
-	//console.log(networkStrength)
+	/*
+	if the system is using wifi = 'WIFI'
+	                         4G = '4G'
+	*/
+	networkStrength = objNet.networkStrengthGet('WIFI');
 }
 
 function updateDisplay(displayState,id){
@@ -343,8 +350,8 @@ function readMCUData(mode){
 	return obj.getMCUData(mode)
 }
 
-function mcuMonitor(control){
-	mymonitor.monitor(control)
+function mcuMonitor(control,st){
+	mymonitor.monitor(control,st)
 }
 
 class tap {

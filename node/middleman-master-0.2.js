@@ -189,14 +189,13 @@ const readLineAsync = msg => {
 async function controllerPolling(){
 	//console.log(middleman.newTap.getTapString());
 	
-	fs.readFile('net-state.txt', 'utf8', (err, data) => {
+	fs.readFile('net-state.json', 'utf8', (err, data) => {
 	  if (err) {
 		console.error(err);
 		return;
 	  }
-	  dataL.stateL2 = data;
-	  console.log(data)
-	  console.log(dataL.getStateL2())
+	  dataL.stateL2 = JSON.parse(data).net_state;
+	  console.log(dataL.stateL2)
 	});
 	
 	middleman.writeMCUData('M',dataL.getStateL2(),0);
@@ -234,7 +233,7 @@ gpioTest();
 
 let controllerPollingID = setInterval(()=>controllerPolling(),500);
 
-let monitorID = setInterval(()=>middleman.mcuMonitor('M','IDLE'),1000);
+let monitorID = setInterval(()=>middleman.mcuMonitor('M',dataL.getStateL2()),1000);
 
 
 

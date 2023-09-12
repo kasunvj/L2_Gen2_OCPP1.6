@@ -137,10 +137,7 @@ Middleman 1.6
 							   					   
 			                                                    
 			
-	output => [value1, value2, value3, value4] all value elemnts ae string.
-	
-	
-	 c 	
+	output => [value1, value2, value3, value4] all value elemnts ae string.	
 		 
 
 3. WRITE MCU DATA---------------------------------------
@@ -262,3 +259,28 @@ Middleman 1.6
 		2 - to 90%
 		3 - to 15 mins
 		4 - to 30 mins
+		
+
+7. Network Strength and Connectivity for wifi and 4G
+
+	Network status is checked from middleman for every 5 seconds 
+	
+    Require below pacakge 
+		require("./stamp_custom_modules/networkCheck");
+		
+	Two Fucntions to get hetwork status and network strength 
+		netwrokStatusGet()
+			return 1 : if google ping successful 
+			return 0 : otherwise
+		
+		networkStrengthGet('WIFI')
+			'4G'
+				- Level strength of the 4G network 
+			'WIFI'
+				- Level strength of the WIFI network 
+				
+				
+				
+			return 3 - dB level is above -55dB
+				   2 - dB level is between -55dB and -70dB
+				   1 - dB level is below -70dB

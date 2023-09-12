@@ -47,16 +47,17 @@ function monitor(charger,netSt){
 			else
 				stateName = 'State Error'
 			
+			console.log(netSt)
+			
 			if(netSt == 'IDLE')
-				console.log('Network State   : [*] IDLE [ ] PRE_START [ ] START [ ] STOP  \x1b[0m')
+				console.log('Network State   : \x1b[94m[*] IDLE\x1b[0m [ ] PRE_START [ ] START [ ] STOP  \x1b[0m')
 			else if(netSt == 'PRE_START')
-				console.log('Network State   : [ ] IDLE [*] PRE_START [ ] START [ ] STOP  \x1b[0m')
+				console.log('Network State   : [ ] IDLE \x1b[94m[*] PRE_START\x1b[0m [ ] START [ ] STOP  \x1b[0m')
 			else if(netSt == 'START')
-				console.log('Network State   : [ ] IDLE [ ] PRE_START [*] START [ ] STOP  \x1b[0m')
+				console.log('Network State   : [ ] IDLE [ ] PRE_START \x1b[94m[*] START\x1b[0m [ ] STOP  \x1b[0m')
 			else if(netSt == 'STOP')
-				console.log('Network State   : [ ] IDLE [ ] PRE_START [ ] START [*] STOP  \x1b[0m')
+				console.log('Network State   : [ ] IDLE [ ] PRE_START [ ] START \x1b[94m[*] STOP  \x1b[0m')
 			else
-				console.log(netSt)
 				console.log('Network State   : [ ] IDLE [ ] PRE_START [ ] START [ ] STOP  \x1b[0m')
 			
 			console.log("Charger State   : "+state+'\x1b[94m '+stateName+'\x1b[0m')
