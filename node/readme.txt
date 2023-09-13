@@ -17,10 +17,12 @@ Middleman 1.6
 
     > pageChange(state)
 	
-	input => state
-			integer of {66-75}
-	output => none
-			
+	 __________________________________
+	|input => state                    |
+	|		integer                    |
+	| output => none                   |
+	|__________________________________|
+	 		
 		67,Last CHARGE  "wifi":3, "heat": 1                                      
 		68,VERIFYING    "kwh":21.1,"cost":500.00,"time":7568,"wifi":3, "heat": 1                       
 		69,LOADING      "id":"C8689","wifi":3, "heat": 1                                               
@@ -42,8 +44,13 @@ Middleman 1.6
 			
 			
 	> pageEventEmitter.emit(side,state)
-	input  => side,state
-	output =>  non
+	
+	 ____________________________________
+	|input  => side,state                |
+	|		string,integer               |
+	|output =>  non                      |
+	|____________________________________|
+	
 		
 		side
 			'newpage_Left_dmg' - left
@@ -83,6 +90,20 @@ Middleman 1.6
 			note: L2 charger data should be request and get by polling L2 and FC. Any data comming from the MCU(L2 charger) through serial bus will asynchonously read and saved by the 	
 	
 	> readMCUData(mode) 
+	 ____________________________________________________________________
+	|input  => mode             	                                     |
+	|		string                                                       |
+	|output =>                                                           |
+	|       inputs 'msgId0','msgId1':                                    |
+	|			Array of length 4                                        |
+	|			[string,string,string,string]                            |
+	|		input 'stateL2'                                              |
+	|			int                                                      |
+	|		input stateL2 'activityState','netRequestL2','genErrorL2'    |
+	|			string                                                   |
+	|			                                                         | 
+	|____________________________________________________________________|
+	
 	input  => mode 
 			'msgId0' - data under msg id0 - returns array [voltage, current, power, 0]
 			'msgId1' - data under msg id1 - returns array [power,ta,t2,t3]
@@ -148,6 +169,11 @@ Middleman 1.6
 			to serial bus 1
 		
    > writeMCUData(controller,state,stopCharge)	
+     ________________________________________
+   	|input  => controller,state,stopCharge   |
+	|		string,string,string             |
+	|output =>  int                          |
+	|________________________________________|
 	
 	input =>  	
 		controller 
@@ -186,6 +212,11 @@ Middleman 1.6
 	create(PIN,DIRECTION,VALUE)
 		-Returns a promise once it is created
 		-should be used inside an async fucntion with await 
+		     ________________________________________
+			|input  => pin,dir,val                   |
+			|		int,string,int 		             |
+			|output =>  Promise                      |
+			|________________________________________|
 		
 		PIN = GPIO pin 
 		DIRECTION = 'out' or 'in'
@@ -269,11 +300,17 @@ Middleman 1.6
 		require("./stamp_custom_modules/networkCheck");
 		
 	Two Fucntions to get hetwork status and network strength 
-		netwrokStatusGet()
+		>netwrokStatusGet()
 			return 1 : if google ping successful 
 			return 0 : otherwise
 		
-		networkStrengthGet('WIFI')
+		>networkStrengthGet('WIFI')
+     ________________________________________
+   	|input  => type						     |
+	|		string,				             |
+	|output =>  int                          |
+	|________________________________________|
+		
 			'4G'
 				- Level strength of the 4G network 
 			'WIFI'
