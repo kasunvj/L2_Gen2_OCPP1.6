@@ -169,11 +169,11 @@ Middleman 1.6
 			to serial bus 1
 		
    > writeMCUData(controller,state,stopCharge)	
-     ________________________________________
-   	|input  => controller,state,stopCharge   |
-	|		string,string,string             |
-	|output =>  int                          |
-	|________________________________________|
+     ____________________________________________________
+   	|input  => controller,state,stopCharge,powerSideError|
+	|		string,string,string                         |
+	|output =>  int                                      | 
+	|____________________________________________________|
 	
 	input =>  	
 		controller 
@@ -190,6 +190,16 @@ Middleman 1.6
 			0 - No stopping charge
 			1 - Stop Charge !!
 			
+		powerSideError	
+			'GF' - Ground Fault
+			'OCF'- Over Current Fault
+			'GFI'- GFI Test Failed
+			'SC' - Stuck Contactor Error
+			'UV' - Under Voltage Error
+			'OV' - Over Voltage Error
+		    ' '  - NO ERROR
+
+		
 	output => if successful 0
 	
 	
@@ -212,11 +222,11 @@ Middleman 1.6
 	create(PIN,DIRECTION,VALUE)
 		-Returns a promise once it is created
 		-should be used inside an async fucntion with await 
-		     ________________________________________
-			|input  => pin,dir,val                   |
-			|		int,string,int 		             |
-			|output =>  Promise                      |
-			|________________________________________|
+	 ________________________________________
+	|input  => pin,dir,val                   |
+	|		int,string,int 		             |
+	|output =>  Promise                      |
+	|________________________________________|
 		
 		PIN = GPIO pin 
 		DIRECTION = 'out' or 'in'

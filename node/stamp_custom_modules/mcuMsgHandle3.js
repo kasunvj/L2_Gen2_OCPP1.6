@@ -14,6 +14,7 @@ var totalBufOut = Buffer.alloc(20);
 var selectContBufOut = Buffer.alloc(1);
 var stateCommand = Buffer.alloc(1);
 var stopCharge = Buffer.alloc(1);
+var errorCommand = Buffer.alloc(1);
 var dataBufOut = Buffer.alloc(14);
 var checksmOut = Buffer.alloc(2);
 
@@ -155,7 +156,7 @@ function bin2dec(binStr){
 }
 
 
-function mcuMsgEncode(controller,state,stopC,port,parser){
+function mcuMsgEncode(controller,state,stopC,errorC,port,parser){
 	
 	
 	switch(controller){
@@ -180,14 +181,24 @@ function mcuMsgEncode(controller,state,stopC,port,parser){
 		default: stopCharge = Buffer.from([0x00]);break;
 	}
 	
-	dataBufOut = Buffer.concat([stateCommand,stopCharge,Buffer.from([0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00])],14)
+	switch(errorC){
+		case 'GF':errorCommand  = Buffer.from([0x01]);break;
+		case 'OCF':errorCommand = Buffer.from([0x02]);break;
+		case 'GFI':errorCommand = Buffer.from([0x03]);break;
+		case 'SC':errorCommand  = Buffer.from([0x04]);break;
+		case 'UV':errorCommand = Buffer.from([0x05]);break;
+		case 'OV':errorCommand = Buffer.from([0x06]);break;
+		default:errorCommand  = Buffer.from([0x00]);break;
+	}
+	
+	dataBufOut = Buffer.concat([stateCommand,stopCharge,Buffer.from([0x00,0x00,0x00]),errorCommand,Buffer.from([0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00])],14)
 	
 	
 	/*Get the checksm of 15 bytes of msg. starting from C----- */
 	checksmOut = crc16('MODBUS',Buffer.concat([selectContBufOut,dataBufOut],15));
 	totalBufOut= Buffer.concat([Buffer.from([0x23]),selectContBufOut,dataBufOut, Buffer.from(checksmOut.toString(16).padStart(4,'0'),'hex').swap16(),Buffer.from([0x2a,0x0a])],20);
 	
-	//console.log('Out:          #  M  ST SP *  *  *  *  *  *  *  *  *  *  *  *  CR C- *  n')
+	//onsole.log('Out:          #  M  ST SP *  *  *  PE  *  *  *  *  *  *  *  *  CR C- *  n')
 	//console.log("Out: ", totalBufOut);
 	
 	try{

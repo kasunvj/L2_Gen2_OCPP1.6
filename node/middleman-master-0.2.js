@@ -25,6 +25,7 @@ var newLeft = 0;
 var newRight = 0;
 const fs = require('fs');
 
+
 class mySide{
 	constructor(myLeft,myRight){
 		this.myLeft = myLeft
@@ -60,7 +61,7 @@ cProfile - User Charging profile
 */
 
 class NetworkDataLEFT{
-	constructor(cid,lastChargePt,lastTime,lastCost,chargerPower,chargerPrice,stateL2){
+	constructor(cid,lastChargePt,lastTime,lastCost,chargerPower,chargerPrice,stateL2,errorL2){
 		this.cid = cid;
 		this.lastChargePt = lastChargePt;
 		this.lastTime = lastTime;
@@ -68,6 +69,7 @@ class NetworkDataLEFT{
 		this.chargerPower = chargerPower;
 		this.chargerPrice = chargerPrice;
 		this.stateL2 = stateL2;
+		this.errorL2 = errorL2;
 		
 		
     }
@@ -81,6 +83,7 @@ class NetworkDataLEFT{
 	getchargerPower(){return this.chargerPower;}
 	getchargerPrice(){return this.chargerPrice;}
 	getStateL2(){return this.stateL2;}
+	getErrorL2(){return this.errorL2;}
 	
 		
 };
@@ -187,19 +190,16 @@ const readLineAsync = msg => {
 }
 
 async function controllerPolling(){
-	//console.log(middleman.newTap.getTapString());
 	
 	fs.readFile('net-state.json', 'utf8', (err, data) => {
-	  if (err) {
-		console.error(err);
-		return;
-	  }
+	  if (err) {console.error(err);return;}
 	  dataL.stateL2 = JSON.parse(data).net_state;
-	  console.log(dataL.stateL2)
+	  dataL.errorL2 = JSON.parse(data).error_state;
 	});
 	
-	middleman.writeMCUData('M',dataL.getStateL2(),0);
+	middleman.writeMCUData('M',dataL.getStateL2(),0,dataL.getErrorL2());
 	//middleman.writeMCUData('m','A');
+	
 	
 	
 	if( newLeft !=  dmgSide.myLeft){
@@ -211,11 +211,6 @@ async function controllerPolling(){
 		
 		pageEventEmitter.emit('newpage_Right_dmg',newRight)
 	}
-	
-	//console.log('MCU state: ',middleman.readMCUData('stateL2'))
-	//console.log('MCU activity state: ',middleman.readMCUData('activityState'))
-	//console.log('Network Request: ',middleman.readMCUData('netRequestL2'))
-	//console.log('Power Error: ',middleman.readMCUData('powerErrorL2'))
 	
 }
 
@@ -248,6 +243,8 @@ lastTime - Last Charge Time
 lastCost - Last Charge Cost X 10
 chargerPower - Last Charge Power 
 chargerPrice - Charger Price Per KWh
+stateL2 - State of L2 charger
+errorL2 - error of L2 charger
 
 Right (L2)___________________________
 cid - charger ID
@@ -267,7 +264,7 @@ charging mode
 ---------------------------------------*/
 
 
-var dataL = new NetworkDataLEFT(9999,98,999,567.8,87,235.5,'IDLE');
+var dataL = new NetworkDataLEFT(9999,98,999,567.8,87,235.5,'IDLE','');
 var dataR = new NetworkDataRIGHT(9999,99,999,3450.7,67,567.8,"ABCD","ABCDEFGHIJKL",199.99,1);
 
 var dmgSide= new mySide(0,0);

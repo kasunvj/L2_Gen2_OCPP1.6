@@ -23,7 +23,7 @@ function monitor(charger,netSt){
 			var genErr = objmcu.getMCUData('genErrorL2');
 			
 			console.log()
-			console.log('\x1b[33m'+year+"-"+month+"-"+date+" "+hours+":"+minutes+":"+seconds+"----- \x1b[0m")
+			console.log('\x1b[33m'+year+"-"+month+"-"+date+" "+hours+":"+minutes+":"+seconds+"-------------------------- \x1b[0m")
 			if (state == 0)
 				stateName = 'POWER ON'
 			else if (state == 1)
@@ -47,7 +47,7 @@ function monitor(charger,netSt){
 			else
 				stateName = 'State Error'
 			
-			console.log(netSt)
+			//console.log(netSt)
 			
 			if(netSt == 'IDLE')
 				console.log('Network State   : \x1b[94m[*] IDLE\x1b[0m [ ] PRE_START [ ] START [ ] STOP  \x1b[0m')

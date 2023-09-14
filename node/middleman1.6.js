@@ -66,6 +66,17 @@ var voltNow = Buffer.alloc(2);
 var EventEmitter = require('events');
 var L2dataEmitter = new EventEmitter();
 
+const fsmm = require('fs');
+fsmm.readFile('tag.json', 'utf8', (err, data) => {
+	  if (err) {console.error(err);return;}
+	  console.log("+--------------------------------------")
+	  console.log("|")
+	  console.log("| Middleman Pacakge Version :",JSON.parse(data).pack_version)
+	  console.log("| Updated on :",JSON.parse(data).date)
+	  console.log("|")
+	  console.log("+--------------------------------------")
+	});
+
 //========================================
 //Internal function used by this module
 //========================================
@@ -141,8 +152,14 @@ function readMCU(){
 	});
 }
 
+
+function delay(time) {
+  return new Promise(resolve => setTimeout(resolve, time));
+} 
+
 function updateNet(){
 	//console.log('open-net');
+	
 	networkConnectivity = objNet.netwrokStatusGet();
 	/*
 	if the system is using wifi = 'WIFI'
@@ -369,8 +386,8 @@ class tap {
 var newTap = new tap(0,'');
 
 
-function writeMCUData(controller,msg,stopCharge){
-	return obj.mcuMsgEncode(controller,msg,stopCharge,portS1,parserFixLen)
+function writeMCUData(controller,msg,stopCharge,errormsg){
+	return obj.mcuMsgEncode(controller,msg,stopCharge,errormsg,portS1,parserFixLen)
 }
 
 
