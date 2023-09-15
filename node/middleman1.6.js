@@ -19,6 +19,7 @@ var objNet = require("./stamp_custom_modules/networkCheck");
 var objDMG = require("./stamp_custom_modules/controlDMG");
 var mymonitor = require('./stamp_custom_modules/mcuMonitor'); 
 
+
 const portS1 = new SerialPort({ path: '/dev/ttyS1', baudRate: 9600,parity: 'even' }); 
 const portS2 = new SerialPort({ path: '/dev/ttyS2', baudRate: 115200}); 
 const portACM0 = new SerialPort({ path: '/dev/ttyACM0', baudRate: 9600});
@@ -166,6 +167,7 @@ function updateNet(){
 	                         4G = '4G'
 	*/
 	networkStrength = objNet.networkStrengthGet('WIFI');
+	
 }
 
 function updateDisplay(displayState,id){
@@ -324,11 +326,13 @@ function updateDisplay(displayState,id){
 }
 
 function bye(){
+	exec('echo '+0+' > /sys/class/gpio/unexport', (error,stdout,stderr) => {});
 	console.log('Gracefully died, Peace!!!');
     process.exit();
 }
 
 function halfbye(){
+	exec('echo '+0+' > /sys/class/gpio/unexport', (error,stdout,stderr) => {});
 	console.log('Not gracefully died, No Peace!!!');
     process.exit();
 }
