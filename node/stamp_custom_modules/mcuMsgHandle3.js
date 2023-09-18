@@ -4,7 +4,7 @@ This module read and strip data from a given 20byte fix serial data buffer
 
 const {crc16} = require('easy-crc');
 var conv = require('hex2dec');
-var myheartbeat = require('./heartbeat'); 
+//var myheartbeat = require('./heartbeat'); 
 
 /*MCU communication variables*/
 var totalBufIn = Buffer.alloc(20);
@@ -107,7 +107,9 @@ function mcuMsgDecode(buf){
 			
 			if(conv.hexToDec(crc16('MODBUS',dataBufIn).toString(16)) == checksmIn){
 				//console.log("CRC PASSED");
-				myheartbeat.ledbeat();
+				
+				//myheartbeat.ledbeat();
+				
 				//Extracting L2 State
 				var decimalVal = parseInt(conv.hexToDec(dataBufIn.slice(1,2).toString('hex')))
 				mcuStateL2.state = bin2dec(dec2bin(decimalVal).slice(3,8));

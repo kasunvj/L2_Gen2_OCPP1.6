@@ -326,13 +326,13 @@ function updateDisplay(displayState,id){
 }
 
 function bye(){
-	exec('echo '+0+' > /sys/class/gpio/unexport', (error,stdout,stderr) => {});
+	//exec('echo '+0+' > /sys/class/gpio/unexport', (error,stdout,stderr) => {});
 	console.log('Gracefully died, Peace!!!');
     process.exit();
 }
 
 function halfbye(){
-	exec('echo '+0+' > /sys/class/gpio/unexport', (error,stdout,stderr) => {});
+	//exec('echo '+0+' > /sys/class/gpio/unexport', (error,stdout,stderr) => {});
 	console.log('Not gracefully died, No Peace!!!');
     process.exit();
 }
