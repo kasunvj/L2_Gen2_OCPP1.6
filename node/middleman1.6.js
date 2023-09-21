@@ -45,6 +45,7 @@ let pipeID;
 let pipeIDFast;
 var isSent = 0;
 var isAllSent = 0;
+var f = 80;
 
 
 /*Charger Data - Not Live*/
@@ -247,11 +248,13 @@ function updateDisplay(displayState,id){
 		
 		case 72: //PLUG your EV
 			if(i<1){
-				displayString = '{ \"page\":72,\"id\":\"A1234\",\"wifi\":'+networkStrength.toString()+',\"time\":0000,\"bal\":1000.5,\"updatePage\":1,\"heat\":'+heatWarning.toString()+'}';
+				displayString = '{ \"page\":72,\"id\":\"A1234\",\"wifi\":'+networkStrength.toString()+',\"time\":'+f.toString()+',\"bal\":1000.5,\"updatePage\":1,\"heat\":'+heatWarning.toString()+'}';
 				i++;
 				}
 			else{
-				displayString = '{ \"page\":72,\"id\":\"A1234\",\"wifi\":'+networkStrength.toString()+',\"time\":0000,\"bal\":1000.5,\"updatePage\":0,\"heat\":'+heatWarning.toString()+'}';
+				displayString = '{ \"page\":72,\"id\":\"A1234\",\"wifi\":'+networkStrength.toString()+',\"time\":'+f.toString()+',\"bal\":1000.5,\"updatePage\":0,\"heat\":'+heatWarning.toString()+'}';
+				f = f-1;
+				
 				if(fastDisplayUpdate){
 					clearInterval(id);
 					let pipeIDFast = setInterval(() => updateDisplay(displayState,pipeIDFast),900);
