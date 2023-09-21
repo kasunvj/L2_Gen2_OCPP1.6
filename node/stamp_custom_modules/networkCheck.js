@@ -41,18 +41,20 @@ class networkStat{
 
 var myNetStat = new networkStat(0,1,1);
 
-
+var netl = 0;
 
 function netwrokStatusGet(){
+	
 	require('dns').resolve('google.com', function(err) {
 		if (err) {
 			//console.log("No connection");
-			return 0;
+			netl= 0;
 			}
 		else {
 			//console.log("Connected");
-			return 1
+			netl= 1
 		}});
+	return netl
 	
 }
 
@@ -163,12 +165,18 @@ function getWhateverNetLevel(db){
 	
 	*/
 	var mylev = 0;
-	if (db < 55){
-		return 3;}
-	else if (db >= 55 && db < 70){
-		return 2;}
-	else {
-		return 1;}
+	//console.log("netork state",netwrokStatusGet(),db)
+	if(netwrokStatusGet() == 1){
+		if (db < 55){
+			return 3;}
+		else if (db >= 55 && db < 70){
+			return 2;}
+		else {
+			return 1;}
+	}
+	else{
+		return 0;
+	}
 }
 
 function networkCIDGet(){
