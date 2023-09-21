@@ -71,12 +71,12 @@ var L2dataEmitter = new EventEmitter();
 const fsmm = require('fs');
 fsmm.readFile('tag.json', 'utf8', (err, data) => {
 	  if (err) {console.error(err);return;}
-	  console.log("+--------------------------------------")
+	  console.log("+---------------------------------------")
 	  console.log("|")
 	  console.log("| Middleman Pacakge Version :",JSON.parse(data).pack_version)
 	  console.log("| Updated on :",JSON.parse(data).date)
 	  console.log("|")
-	  console.log("+--------------------------------------")
+	  console.log("+---------------------------------------")
 	});
 
 //========================================
