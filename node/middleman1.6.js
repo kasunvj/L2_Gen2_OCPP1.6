@@ -162,7 +162,7 @@ function delay(time) {
 function updateNet(){
 	//console.log('open-net');
 	
-	networkConnectivity = objNet.netwrokStatusGet();
+	//networkConnectivity = objNet.netwrokStatusGet();
 	/*
 	if the system is using wifi = 'WIFI'
 	                         4G = '4G'
@@ -308,10 +308,20 @@ function updateDisplay(displayState,id){
 				displayString = '{ \"page\":76,\"id\":\"A1234\",\"wifi\":'+networkStrength.toString()+',\"time\":0000,\"cost\":1000.5,\"kwh\":34.7,\"warn\":1,\"updatePage\":0,\"heat\":'+heatWarning.toString()+'}';
 				}
 			break;
-				displayString = '{ \"page\":66,\"wifi\":'+networkStrength.toString()+',\"heat\":'+heatWarning.toString()+'}';
-				break;
+				
+		case 77: //WAITING TO CAHRGE
+			if(i<1){
+				displayString = '{ \"page\":77,\"id\":\"A111\",\"kwh\":0,\"cost\":0,"cur\":0,\"time\":0,\"bal\":0,\"error\":'+mcuData0[1].toString()+',\"warn\":3,\"cur\":'+mcuData0[1].toString()+',\"timer\":1,\"wifi\":'+networkStrength.toString()+',\"updatePage\":1,\"heat\":'+heatWarning.toString()+'}';
+				i++;
+				}
+			else{
+				displayString = '{ \"page\":77,\"id\":\"A1111\",\"kwh\":0,\"cost\":0,"cur\":0,\"time\":0,\"bal\":0,\"error\":'+mcuData0[1].toString()+',\"warn\":3,\"cur\":'+mcuData0[1].toString()+',\"timer\":1,\"wifi\":'+networkStrength.toString()+',\"updatePage\":0,\"heat\":'+heatWarning.toString()+'}';
+				}
+			break;
+				
+		
 		default:
-			displayString = '{ \"page\":66,\"wifi\":'+networkStrength.toString()+',\"heat\":'+heatWarning.toString()+'}';
+			displayString = '{ \"page\":67,\"wifi\":'+networkStrength.toString()+',\"heat\":'+heatWarning.toString()+'}';
 			break;
 			
 	}

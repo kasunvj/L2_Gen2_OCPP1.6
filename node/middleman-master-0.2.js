@@ -143,12 +143,12 @@ async function gpioTest(){
 	await pushButton.create(4,'in',0);
 	
 	
-	middleman.pageChange(72);
+	middleman.pageChange(77);
 	
 	const blinkLed = setInterval(blink, 1000);
 	
 	
-	
+	/*
 	while(1){
 		
 		if(await pushButton.isPressed()){
@@ -157,13 +157,13 @@ async function gpioTest(){
 		}
 		
 		
-		newLeft = parseInt(await readLineAsync("Page L(0-5)?"));
-		newRight = parseInt(await readLineAsync("Page R(0-6)?"));
-		console.log("Your response was: " +parseInt(dmgSide.myLeft) +" "+parseInt(dmgSide.myRight));
+		//newLeft = parseInt(await readLineAsync("Page L(0-5)?"));
+		//newRight = parseInt(await readLineAsync("Page R(0-6)?"));
+		//console.log("Your response was: " +parseInt(dmgSide.myLeft) +" "+parseInt(dmgSide.myRight));
 		
 		
 		
-		}
+		}*/
 		
 	
 	
