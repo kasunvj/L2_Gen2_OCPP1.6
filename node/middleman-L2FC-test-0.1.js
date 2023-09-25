@@ -148,7 +148,7 @@ async function gpioTest(){
 	const blinkLed = setInterval(blink, 1000);
 	
 	
-	/*
+	
 	while(1){
 		
 		if(await pushButton.isPressed()){
@@ -157,13 +157,13 @@ async function gpioTest(){
 		}
 		
 		
-		//newLeft = parseInt(await readLineAsync("Page L(0-5)?"));
-		//newRight = parseInt(await readLineAsync("Page R(0-6)?"));
-		//console.log("Your response was: " +parseInt(dmgSide.myLeft) +" "+parseInt(dmgSide.myRight));
+		newLeft = parseInt(await readLineAsync("Page L(0-5)?"));
+		newRight = parseInt(await readLineAsync("Page R(0-6)?"));
+		console.log("Your response was: " +parseInt(dmgSide.myLeft) +" "+parseInt(dmgSide.myRight));
 		
 		
 		
-		}*/
+		}
 		
 	
 	
@@ -265,7 +265,7 @@ charging mode
 
 
 var dataL = new NetworkDataLEFT(9999,98,999,567.8,87,235.5,'IDLE','');
-var dataR = new NetworkDataRIGHT(9999,99,999,3450.7,67,567.8,"ABCD","ABCDEFGHIJKL",199.99,1);
+var dataR = new NetworkDataRIGHT(9999,99,999,3450.7,67,567.8,"Kasun","Jayalath",199.99,1);
 
 var dmgSide= new mySide(0,0);
 

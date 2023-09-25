@@ -1,0 +1,3 @@
+{"charger_sys":
+[{"port_no":"1","port_type":"L2","com_protocol":"ttyS1","baud":"9600"},
+ {"port_no":"2","port_type":"FC","com_protocol":"ttyS2","baud":"115200"}]}
