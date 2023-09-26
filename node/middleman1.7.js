@@ -1,5 +1,5 @@
 /*
-middleman V 1.4
+middleman V 1 dc
 
 ttyS1 is the serial UART1 communicating with the MCU
 	-20 bites buffered paeser for MCU msgs
@@ -19,17 +19,75 @@ var objNet = require("./stamp_custom_modules/networkCheck");
 var objDMG = require("./stamp_custom_modules/controlDMG");
 var mymonitor = require('./stamp_custom_modules/mcuMonitor'); 
 
+/*Loding configurations*/
+const fsmm = require('fs');
+const data = fsmm.readFileSync('config-system.json','utf8');
+const configObj = JSON.parse(data)
 
-const portS1 = new SerialPort({ path: '/dev/ttyS1', baudRate: 9600,parity: 'even' }); 
-const portS2 = new SerialPort({ path: '/dev/ttyS2', baudRate: 115200}); 
+class Charger{
+	constructor(port,baud){
+		this.port = port
+		this.baud = baud
+	}
+	
+	getPort(){
+		return this.port
+	}
+	
+	getBaud(){
+		return this.baud
+	}
+}
+
+var L2 = new Charger('cd',0)
+var FC = new Charger('dcd',0)
+
+console.log("Charger Configuration-----------+")
+console.log("Charger id : ",configObj.c_id);
+for (var i=0;i<2;i++){
+	if(configObj.charger_sys[i].dev=='/dev/ttyS1'){
+		if(configObj.charger_sys[i].chtype == 'L2'){
+			console.log('ttyS1 : L2',configObj.charger_sys[i].baud)
+			L2.port = '/dev/ttyS1'
+			L2.baud = parseInt(configObj.charger_sys[i].baud)
+		}
+		else if(configObj.charger_sys[i].chtype == 'FC'){
+			console.log('ttyS1 : FC',configObj.charger_sys[i].baud)
+			FC.port = '/dev/ttyS1'
+			FC.baud = parseInt(configObj.charger_sys[i].baud)
+		}
+	}
+	else if(configObj.charger_sys[i].dev=='/dev/ttyS2'){
+		if(configObj.charger_sys[i].chtype == 'L2'){
+			console.log('ttyS2 : L2',configObj.charger_sys[i].baud)
+			L2.port = '/dev/ttyS2'
+			L2.baud = parseInt(configObj.charger_sys[i].baud)
+		}
+		else if(JSON.parse(data).charger_sys[i].chtype == 'FC'){
+			console.log('ttyS2 : FC',configObj.charger_sys[i].baud)
+			FC.port = '/dev/ttyS2'
+			FC.baud = parseInt(configObj.charger_sys[i].baud)
+			
+		}	
+	}
+	else{
+		console.log("Wrong Configuration!")
+	}
+}
+
+console.log("--------------------------------+")
+
+
+const portL2 = new SerialPort({path:L2.getPort(),baudRate:L2.getBaud(),parity: 'even' });
+const parserFixLenL2 = portL2.pipe(new ByteLengthParser({ length: 20 }));
+
+const portFC = new SerialPort({path:FC.getPort(),baudRate:FC.getBaud()});
+const parserFixLenDMG = portFC.pipe(new ByteLengthParser({ length: 10 }));
+const parserFixLenFC = portFC.pipe(new ByteLengthParser({ length: 20 }));
+
 const portACM0 = new SerialPort({ path: '/dev/ttyACM0', baudRate: 9600});
-const parserFixLen = portS1.pipe(new ByteLengthParser({ length: 20 }));
-const parserFixLenDMG = portS2.pipe(new ByteLengthParser({ length: 10 }));
 const parserReadLn = portACM0.pipe(new ReadlineParser({ delimiter: '\r\n'}));
 
-/*Display*/
-const fs = require('fs');
-const fifoPath = '/tmp/my_fifo';
 
 var i = 0;
 var t = 1;
@@ -68,16 +126,6 @@ var voltNow = Buffer.alloc(2);
 var EventEmitter = require('events');
 var L2dataEmitter = new EventEmitter();
 
-const fsmm = require('fs');
-fsmm.readFile('tag.json', 'utf8', (err, data) => {
-	  if (err) {console.error(err);return;}
-	  console.log("+---------------------------------------")
-	  console.log("|")
-	  console.log("| Middleman Pacakge Version :",JSON.parse(data).pack_version)
-	  console.log("| Updated on :",JSON.parse(data).date)
-	  console.log("|")
-	  console.log("+---------------------------------------")
-	});
 
 //========================================
 //Internal function used by this module
@@ -141,9 +189,9 @@ function listenTapCard(){
 	});
 }
 
-function readMCU(){
+function readMCUL2(){
 	console.log('opened');
-	parserFixLen.on('data', function(data){
+	parserFixLenL2.on('data', function(data){
 		if(obj.mcuMsgDecode(data) == 0){ 
 			L2dataEmitter.emit('data',obj.mcuDataM0,obj.mcuDataM1,obj.mcuStateL2)
 			//nothing to be  done, calling mcuMsgDecode also save latest values
@@ -154,6 +202,18 @@ function readMCU(){
 	});
 }
 
+function readMCUFC(){
+	console.log('opened');
+	parserFixLenFC.on('data', function(data){
+		if(obj.mcuMsgDecode(data) == 0){ 
+			//L2dataEmitter.emit('data',obj.mcuDataM0,obj.mcuDataM1,obj.mcuStateL2)
+			//nothing to be  done, calling mcuMsgDecode also save latest values
+			//and update values that uses for DMG Display
+			//updateDisplayDMG(liveDMGLeft,liveDMGLeft);
+		}
+		
+	});
+}
 
 function delay(time) {
   return new Promise(resolve => setTimeout(resolve, time));
@@ -171,171 +231,8 @@ function updateNet(){
 	
 }
 
-function updateDisplay(displayState,id){
-	
-	/*mcu data collect and 
-	analize
-	MODE 0
-		mcuData0[0] : Volatage
-		mcuData0[1] : Current
-		mcuData0[2] : Power
-		mcuData0[3] : 0
-	
-	MODE 1
-		mcuData1[0] : KWh
-		mcuData1[1] : t1
-		mcuData1[2] : t2
-		mcuData1[3] : t3
-	*/
-	var mcuData0 = obj.getMCUData('msgId0');
-	var mcuData1 = obj.getMCUData('msgId1');
-	
-	// heat
-	if (mcuData1[1]>65){heatWarning = 1;}
-	else{heatWarning = 0;}
-	
-	
-	//console.log("*************************");
-	
-	
-	/*update display state based on mcu data and network data*/
-	switch(displayState){
-		case 67: //LOADING
-			displayString = '{ \"page\":66,\"wifi\":'+networkStrength.toString()+',\"heat\":'+heatWarning.toString()+'}';
-			break;
-			
-		case 68: //LAST CHARGE
-			if(i<1){
-				displayString = '{ \"page\":68,\"id\":\"A1234\",\"kwh\":'+mcuData1[0].toString()+',\"cost\":'+mcuData0[1].toString()+',\"time\":6789,\"bal\":6789.1,\"error\":'+mcuData0[1].toString()+',\"warn\":3,\"cur\":34.9,\"timer\":'+t.toString()+',\"wifi\":'+networkStrength.toString()+',\"updatePage\":1,\"heat\":'+heatWarning.toString()+'}';
-				i++;
-			}
-			else{
-				displayString = '{ \"page\":68,\"id\":\"A1234\",\"kwh\":'+mcuData1[0].toString()+',\"cost\":'+mcuData0[1].toString()+',\"time\":6789,\"bal\":6789.1,\"error\":'+mcuData[1].toString()+',\"warn\":3,\"cur\":34.9,\"timer\":'+t.toString()+',\"wifi\":'+networkStrength.toString()+',\"updatePage\":0,\"heat\":'+heatWarning.toString()+'}';
-			}
-			
-			break;
-			
-		case 69: //VERIFING 
-			if(i<1){
-				displayString = '{ \"page\":69,\"id\":\"A1234\",\"wifi\":'+networkStrength.toString()+',\"updatePage\":1,\"heat\":'+heatWarning.toString()+'}';
-				i++;
-				tapcardDetect = 0;
-			}
-			else{
-				displayString = '{ \"page\":69,\"id\":\"A1234\",\"wifi\":'+networkStrength.toString()+',\"updatePage\":0,\"heat\":'+heatWarning.toString()+'}';
-			}
-			break;
-			
-		case 70:// LOADING
-			if(i<1){
-				displayString = '{ \"page\":70,\"wifi\":'+networkStrength.toString()+',\"updatePage\":1,\"heat\":'+heatWarning.toString()+'}';
-				i++;
-				}
-			else{
-				displayString = '{ \"page\":70,\"wifi\":'+networkStrength.toString()+',\"updatePage\":0,\"heat\":'+heatWarning.toString()+'}';
-				}
-			break;
-		
-		case 71: //FAILED
-			if(i<1){
-				displayString = '{ \"page\":71,\"id\":\"A1234\",\"wifi\":'+networkStrength.toString()+',\"updatePage\":1,\"heat\":'+heatWarning.toString()+'}';
-				i++;
-				}
-			else{
-				displayString = '{ \"page\":71,\"id\":\"A1234\",\"wifi\":'+networkStrength.toString()+',\"updatePage\":0,\"heat\":'+heatWarning.toString()+'}';
-				}
-			break;
-		
-		case 72: //PLUG your EV
-			if(i<1){
-				displayString = '{ \"page\":72,\"id\":\"A1234\",\"wifi\":'+networkStrength.toString()+',\"time\":'+f.toString()+',\"bal\":1000.5,\"updatePage\":1,\"heat\":'+heatWarning.toString()+'}';
-				i++;
-				}
-			else{
-				displayString = '{ \"page\":72,\"id\":\"A1234\",\"wifi\":'+networkStrength.toString()+',\"time\":'+f.toString()+',\"bal\":1000.5,\"updatePage\":0,\"heat\":'+heatWarning.toString()+'}';
-				f = f-1;
-				
-				if(fastDisplayUpdate){
-					clearInterval(id);
-					let pipeIDFast = setInterval(() => updateDisplay(displayState,pipeIDFast),900);
-					fastDisplayUpdate = 0;
-				}
-				}
-			break;
-		
-		case 73: //Charging
-			if(i<1){
-				displayString = '{ \"page\":73,\"id\":\"A1234\",\"kwh\":'+mcuData1[0].toString()+',\"cost\":'+mcuData1[1].toString()+',\"time\":6789,\"bal\":6789.1,\"error\":'+mcuData0[1].toString()+',\"warn\":3,\"cur\":'+mcuData0[1].toString()+',\"timer\":1,\"wifi\":'+networkStrength.toString()+',\"updatePage\":1,\"heat\":'+heatWarning.toString()+'}';
-				i++;
-			}
-			else{
-				displayString = '{ \"page\":73,\"id\":\"A1234\",\"kwh\":'+mcuData1[0].toString()+',\"cost\":'+mcuData1[1].toString()+',\"time\":6789,\"bal\":6789.1,\"error\":'+mcuData0[1].toString()+',\"warn\":3,\"cur\":'+mcuData0[1].toString()+',\"timer\":0,\"wifi\":'+networkStrength.toString()+',\"updatePage\":0,\"heat\":'+heatWarning.toString()+'}';
-				if(fastDisplayUpdate){
-					clearInterval(id);
-					let pipeIDFast = setInterval(() => updateDisplay(displayState,pipeIDFast),900);
-					fastDisplayUpdate = 0;
-				}
-				
-			}
-			break;
-			
-		case 74: //UNPLUG your EV
-			if(i<1){
-				displayString = '{ \"page\":74,\"id\":\"A1234\",\"wifi\":'+networkStrength.toString()+',\"time\":0000,\"cost\":1000.5,\"kwh\":34.7,\"updatePage\":1,\"heat\":'+heatWarning.toString()+'}';
-				i++;
-				}
-			else{
-				displayString = '{ \"page\":74,\"id\":\"A1234\",\"wifi\":'+networkStrength.toString()+',\"time\":0000,\"cost\":1000.5,\"kwh\":34.7,\"updatePage\":0,\"heat\":'+heatWarning.toString()+'}';
-				}
-			break;
-		
-		case 75: //ERROR
-			if(i<1){
-				displayString = '{ \"page\":75,\"id\":\"A1234\",\"wifi\":'+networkStrength.toString()+',\"time\":0000,\"cost\":1000.5,\"kwh\":34.7,\"error\":1,\"updatePage\":1,\"heat\":'+heatWarning.toString()+'}';
-				i++;
-				}
-			else{
-				displayString = '{ \"page\":75,\"id\":\"A1234\",\"wifi\":'+networkStrength.toString()+',\"time\":0000,\"cost\":1000.5,\"kwh\":34.7,\"error\":1,\"updatePage\":0,\"heat\":'+heatWarning.toString()+'}';
-				}
-			break;
-			
-		case 76: //WARNING
-			if(i<1){
-				displayString = '{ \"page\":76,\"id\":\"A1234\",\"wifi\":'+networkStrength.toString()+',\"time\":0000,\"cost\":1000.5,\"kwh\":34.7,\"warn\":1,\"updatePage\":1,\"heat\":'+heatWarning.toString()+'}';
-				i++;
-				}
-			else{
-				displayString = '{ \"page\":76,\"id\":\"A1234\",\"wifi\":'+networkStrength.toString()+',\"time\":0000,\"cost\":1000.5,\"kwh\":34.7,\"warn\":1,\"updatePage\":0,\"heat\":'+heatWarning.toString()+'}';
-				}
-			break;
-				
-		case 77: //WAITING TO CAHRGE
-			if(i<1){
-				displayString = '{ \"page\":77,\"id\":\"A111\",\"kwh\":0,\"cost\":0,"cur\":0,\"time\":0,\"bal\":0,\"error\":'+mcuData0[1].toString()+',\"warn\":3,\"cur\":'+mcuData0[1].toString()+',\"timer\":1,\"wifi\":'+networkStrength.toString()+',\"updatePage\":1,\"heat\":'+heatWarning.toString()+'}';
-				i++;
-				}
-			else{
-				displayString = '{ \"page\":77,\"id\":\"A1111\",\"kwh\":0,\"cost\":0,"cur\":0,\"time\":0,\"bal\":0,\"error\":'+mcuData0[1].toString()+',\"warn\":3,\"cur\":'+mcuData0[1].toString()+',\"timer\":1,\"wifi\":'+networkStrength.toString()+',\"updatePage\":0,\"heat\":'+heatWarning.toString()+'}';
-				}
-			break;
-		
-		default:
-			displayString = '{ \"page\":67,\"wifi\":'+networkStrength.toString()+',\"heat\":'+heatWarning.toString()+'}';
-			break;
-			
-	}
-	
-	
-	//console.log("writing to page: ",displayState,mcuData[1],networkStrength);
-	
-	
-	//wrirng to page
-	
-	const fd = fs.openSync(fifoPath, 'w');
-	const data = displayString;
-	fs.writeSync(fd, data.padEnd(150));
-	fs.closeSync(fd);		
-}
+
+
 
 function bye(){
 	//exec('echo '+0+' > /sys/class/gpio/unexport', (error,stdout,stderr) => {});
@@ -403,29 +300,15 @@ var newTap = new tap(0,'');
 
 
 function writeMCUData(controller,msg,stopCharge,errormsg){
-	return obj.mcuMsgEncode(controller,msg,stopCharge,errormsg,portS1,parserFixLen)
+	if(controller == "M")
+		return obj.mcuMsgEncode(controller,msg,stopCharge,errormsg,portL2,parserFixLenL2)
+	else if(controller == "m")
+		return obj.mcuMsgEncode(controller,msg,stopCharge,errormsg,portFC,parserFixLenFC)
+	else
+		return -1
 }
 
 
-/*---------------------------
-Other display
------------------------------*/
-function pageChange(newDiaplayState){
-	
-	var dummyID = setInterval(() => {},0)
-	while(dummyID--){ 
-		clearInterval(dummyID);
-		//console.log("clear time interval id")
-		} 
-	
-	if ((newDiaplayState == 72) || (newDiaplayState == 73) ){
-		fastDisplayUpdate = 1;
-	}
-	
-	let pipeID = setInterval(()=>updateDisplay(newDiaplayState,pipeID),2000);
-	
-	
-}
 
 /*GPIO*/
 class gpio{
@@ -506,8 +389,10 @@ class gpio{
 // Async running functions
 //========================================
 
-/* Read from MCU */
-portS1.on('open',readMCU); 
+/* Read from MCU L2 and FC*/
+portL2.on('open',readMCUL2); 
+
+portFC.on('open',readMCUFC)
 
 		
 /* Read from Tap Card*/
@@ -721,8 +606,8 @@ function changeDMGPage(panel,stateNo){
 				
 				case 1:// please wait
 					/*clean system error icon left and right*/
-					//objDMG.dmgIcon(Buffer.from([0x18,0x00,0x01]),portS2)
-					//objDMG.dmgIcon(Buffer.from([0x38,0x00,0x01]),portS2)
+					//objDMG.dmgIcon(Buffer.from([0x18,0x00,0x01]),portFC)
+					//objDMG.dmgIcon(Buffer.from([0x38,0x00,0x01]),portFC)
 					if(liveDMGLeft.getPage() == 0){ page = 6 ;}
 					else if(liveDMGLeft.getPage() == 1){ page = 7 ;}
 					else if(liveDMGLeft.getPage() == 2){ page = 8 ;}
@@ -864,7 +749,7 @@ function changeDMGPage(panel,stateNo){
 	
 	//console.log("Side "+panel +" State change to "+stateNo+" | Page No change to (0-37)"+page)
 	
-	isSent = isSent + objDMG.dmgPageChangeMsg(page,portS2);
+	isSent = isSent + objDMG.dmgPageChangeMsg(page,portFC);
 	
 	return isSent;
 	
@@ -881,32 +766,32 @@ function changeDMGData(panel,page,data){
 					/* Charger ID*/
 					cID = Buffer.from((data.getcid()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x11,0x00]),cID],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portS2); 
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC); 
 					
 					/* Last Charge %*/
 					lastCharge = Buffer.from((data.getlastChargePt()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x11,0x20]),lastCharge],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portS2);
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC);
 					
 					/* Charger Operates Power*/
 					cpower = Buffer.from((data.getchargerPower()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x11,0x40]),cpower],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portS2);
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC);
 					
 					/* Last Time*/
 					lastTime = Buffer.from((data.getlastTime()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x13,0x40]),lastTime],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portS2);
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC);
 					
 					/* Last Price (Original value should X10)*/ 
 					lastPrice = Buffer.from((data.getlastCost()*10).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x13,0x60]),lastPrice],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portS2);
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC);
 					
 					/* Charger Operates Price per KWh*/
 					cprice = Buffer.from((data.getchargerPrice()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x13,0x80]),cprice],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portS2);
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC);
 					
 					return isSent;
 					
@@ -919,35 +804,35 @@ function changeDMGData(panel,page,data){
 					/*Live battery %*/
 					battNow = Buffer.from((liveDMGLeft.getbattPLive()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x11,0x60]),battNow],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portS2);
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC);
 					
 					/* Live Batt Icon*/
-					isSent = isSent + objDMG.dmgIcon(getBattIcon('L',liveDMGLeft.getbattPLive(),portS2),portS2);
+					isSent = isSent + objDMG.dmgIcon(getBattIcon('L',liveDMGLeft.getbattPLive(),portFC),portFC);
 					
 					/*Live cost*/
 					costNow = Buffer.from((liveDMGLeft.getcostLive()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x12,0x00]),costNow],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portS2); 
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC); 
 					
 					/*Live bal*/
 					balNow = Buffer.from((liveDMGLeft.getbalLive()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x12,0x40]),balNow],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portS2); 
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC); 
 					
 					/*Time till full*/
 					timetillfullNow = Buffer.from((liveDMGLeft.gettimetillfullLive()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x11,0x80]),timetillfullNow],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portS2);
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC);
 					
 					/*Live current*/
 					currNow = Buffer.from((liveDMGLeft.getcurrLive()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x12,0x60]),currNow],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portS2);
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC);
 					
 					/*Live volt*/
 					voltNow = Buffer.from((liveDMGLeft.getvoltLive()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x12,0x80]),voltNow],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portS2);
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC);
 					
 					
 					
@@ -957,15 +842,15 @@ function changeDMGData(panel,page,data){
 				
 				case 5://empty page
 					liveDMGLeft.icon = 5
-					dmgTurnOffAllIcons('L',portS2)
+					dmgTurnOffAllIcons('L',portFC)
 					break;
 				
 				case 6://charging full icon
 					liveDMGLeft.icon = 6
 					/*Reove all the icons */
-					dmgTurnOffAllIcons('L',portS2)
+					dmgTurnOffAllIcons('L',portFC)
 					/*Adding icon*/
-					isSent = isSent + objDMG.dmgIcon(Buffer.from([0x12,0x00,0x84]),portS2)
+					isSent = isSent + objDMG.dmgIcon(Buffer.from([0x12,0x00,0x84]),portFC)
 					return isSent;
 					
 					break;
@@ -973,9 +858,9 @@ function changeDMGData(panel,page,data){
 				case 7:// insufficient balance
 					liveDMGLeft.icon = 7
 					/*Reove all the icons */
-					dmgTurnOffAllIcons('L',portS2)
+					dmgTurnOffAllIcons('L',portFC)
 					/*Adding icon*/
-					isSent = isSent + objDMG.dmgIcon(Buffer.from([0x14,0x00,0xB8]),portS2)
+					isSent = isSent + objDMG.dmgIcon(Buffer.from([0x14,0x00,0xB8]),portFC)
 					return isSent;
 					
 					break;
@@ -983,9 +868,9 @@ function changeDMGData(panel,page,data){
 				case 8:// inval card icon
 					liveDMGLeft.icon = 8
 					/*Reove all the icons */
-					dmgTurnOffAllIcons('L',portS2)
+					dmgTurnOffAllIcons('L',portFC)
 					/*Adding icon*/
-					isSent = isSent + objDMG.dmgIcon(Buffer.from([0x16,0x00,0xBA]),portS2)
+					isSent = isSent + objDMG.dmgIcon(Buffer.from([0x16,0x00,0xBA]),portFC)
 					return isSent;
 					
 					break;
@@ -993,9 +878,9 @@ function changeDMGData(panel,page,data){
 				case 9:// error icon
 					liveDMGLeft.icon = 9
 					/*Reove all the icons */
-					dmgTurnOffAllIcons('L',portS2)
+					dmgTurnOffAllIcons('L',portFC)
 					/*Adding  icon*/
-					isSent = isSent + objDMG.dmgIcon(Buffer.from([0x18,0x00,0xBC]),portS2)
+					isSent = isSent + objDMG.dmgIcon(Buffer.from([0x18,0x00,0xBC]),portFC)
 					return isSent;
 					
 					break;
@@ -1006,7 +891,7 @@ function changeDMGData(panel,page,data){
 					
 				default:
 					//console.log("Left Side : L2 has No such state to update data")
-					dmgTurnOffAllIcons('L',portS2)
+					dmgTurnOffAllIcons('L',portFC)
 					break;
 						
 			}
@@ -1019,32 +904,32 @@ function changeDMGData(panel,page,data){
 					/*Charger ID*/
 					cID = Buffer.from((data.getcid()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x11,0x10]),cID],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portS2); 
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC); 
 					
 					/*Last Charge %*/
 					lastCharge = Buffer.from((data.getlastChargePt()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x11,0x30]),lastCharge],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portS2);
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC);
 					
 					/* Charger Operates*/
 					cpower = Buffer.from((data.getchargerPower()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x11,0x50]),cpower],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portS2);
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC);
 					
 					/* Last Time*/
 					lastTime = Buffer.from((data.getlastTime()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x13,0x50]),lastTime],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portS2);
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC);
 					
 					/* Last Price (Original value should X10)*/
 					lastPrice = Buffer.from((data.getlastCost()*10).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x13,0x70]),lastPrice],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portS2);
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC);
 					
 					/* Charger Operates Price per KWh*/
 					cprice = Buffer.from((data.getchargerPrice()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x13,0x90]),cprice],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portS2);
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC);
 					
 					return isSent;
 					
@@ -1057,7 +942,7 @@ function changeDMGData(panel,page,data){
 					const usernameFirstBuf = Buffer.from(nameFirst.toString('hex'));
 					const dmgnameBuf1 = Buffer.concat([Buffer.from([0x13,0x00]),usernameFirstBuf],2+nameFirst.length); //2 is the length of first buffer
 					
-					isSent = isSent + objDMG.dmgUsernameMsg(dmgnameBuf1,nameFirst.length,portS2);
+					isSent = isSent + objDMG.dmgUsernameMsg(dmgnameBuf1,nameFirst.length,portFC);
 					
 					/* Usr Name Last*/
 					const nameLast = data.getunameLast();
@@ -1069,12 +954,12 @@ function changeDMGData(panel,page,data){
 					console.log("Last name length :",nameLast.length)
 					console.log("Last:",usernameLastBuf )
 					
-					isSent = isSent + objDMG.dmgUsernameMsg(dmgnameBuf2,nameLast.length,portS2);
+					isSent = isSent + objDMG.dmgUsernameMsg(dmgnameBuf2,nameLast.length,portFC);
 					
 					/* User Balance*/
 					userbal = Buffer.from((data.getubal()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x13,0x10]),userbal],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portS2);
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC);
 					
 					return isSent;
 					break;
@@ -1085,51 +970,51 @@ function changeDMGData(panel,page,data){
 					/*Live battery %*/
 					battNow = Buffer.from((liveDMGRight.getbattPLive()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x11,0x70]),battNow],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portS2);
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC);
 					
 					/* Live Batt Icon*/
-					isSent = isSent + objDMG.dmgIcon(getBattIcon('R',liveDMGRight.getbattPLive(),portS2),portS2);
+					isSent = isSent + objDMG.dmgIcon(getBattIcon('R',liveDMGRight.getbattPLive(),portFC),portFC);
 					
 					/*Live cost*/
 					costNow = Buffer.from((liveDMGRight.getcostLive()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x12,0x10]),costNow],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portS2);
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC);
 					
 					/*Live bal*/
 					balNow = Buffer.from((liveDMGRight.getbalLive()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x12,0x50]),balNow],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portS2); 
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC); 
 					
 					/*Time till full*/
 					timetillfullNow = Buffer.from((liveDMGRight.gettimetillfullLive()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x11,0x90]),timetillfullNow],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portS2);
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC);
 					
 					/*Live current*/
 					currNow = Buffer.from((liveDMGRight.getcurrLive()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x12,0x70]),currNow],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portS2);
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC);
 					
 					/*Live volt*/
 					voltNow = Buffer.from((liveDMGRight.getvoltLive()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x12,0x90]),voltNow],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portS2);
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC);
 					
 					/*Charging mode*/
 					if(data.getcProfile() == 1){
-						isSent = isSent + objDMG.dmgIcon(Buffer.from([0x84,0x00,0x8E]),portS2);
+						isSent = isSent + objDMG.dmgIcon(Buffer.from([0x84,0x00,0x8E]),portFC);
 					}
 					else if(data.getcProfile() == 2){
-						isSent = isSent + objDMG.dmgIcon(Buffer.from([0x86,0x00,0x90]),portS2);
+						isSent = isSent + objDMG.dmgIcon(Buffer.from([0x86,0x00,0x90]),portFC);
 					}
 					else if(data.getcProfile() == 3){
-						isSent = isSent + objDMG.dmgIcon(Buffer.from([0x88,0x00,0x92]),portS2);
+						isSent = isSent + objDMG.dmgIcon(Buffer.from([0x88,0x00,0x92]),portFC);
 					}
 					else if(data.getcProfile() == 4){
-						isSent = isSent + objDMG.dmgIcon(Buffer.from([0x90,0x00,0x94]),portS2);
+						isSent = isSent + objDMG.dmgIcon(Buffer.from([0x90,0x00,0x94]),portFC);
 					}
 					else{
-						dmgTurnOffAllIcons('R',portS2)
+						dmgTurnOffAllIcons('R',portFC)
 					}
 					
 					return isSent;
@@ -1137,15 +1022,15 @@ function changeDMGData(panel,page,data){
 				
 				case 6://empty page
 					liveDMGRight.icon = 0
-					dmgTurnOffAllIcons('R',portS2)
+					dmgTurnOffAllIcons('R',portFC)
 					break;
 				
 				case 7://charging full icon
 					liveDMGRight.icon = 7
 					/*Reove all the icons */
-					dmgTurnOffAllIcons('R',portS2)
+					dmgTurnOffAllIcons('R',portFC)
 					/*Adding icon*/
-					isSent = isSent + objDMG.dmgIcon(Buffer.from([0x32,0x00,0x96]),portS2)
+					isSent = isSent + objDMG.dmgIcon(Buffer.from([0x32,0x00,0x96]),portFC)
 					return isSent;
 					
 					break;
@@ -1153,9 +1038,9 @@ function changeDMGData(panel,page,data){
 				case 8:// insufficient balance
 					liveDMGRight.icon = 8
 					/*Reove all the icons */
-					dmgTurnOffAllIcons('R',portS2)
+					dmgTurnOffAllIcons('R',portFC)
 					/*Adding icon*/
-					isSent = isSent + objDMG.dmgIcon(Buffer.from([0x34,0x00,0xBE]),portS2)
+					isSent = isSent + objDMG.dmgIcon(Buffer.from([0x34,0x00,0xBE]),portFC)
 					return isSent;
 					
 					break;
@@ -1163,9 +1048,9 @@ function changeDMGData(panel,page,data){
 				case 9:// inval card icon
 					liveDMGRight.icon = 9
 					/*Reove all the icons */
-					dmgTurnOffAllIcons('R',portS2)
+					dmgTurnOffAllIcons('R',portFC)
 					/*Adding icon*/
-					isSent = isSent + objDMG.dmgIcon(Buffer.from([0x36,0x00,0xC0]),portS2)
+					isSent = isSent + objDMG.dmgIcon(Buffer.from([0x36,0x00,0xC0]),portFC)
 					return isSent;
 					
 					break;
@@ -1173,9 +1058,9 @@ function changeDMGData(panel,page,data){
 				case 10:// error icon
 					liveDMGRight.icon = 10
 					/*Reove all the icons */
-					dmgTurnOffAllIcons('R',portS2)
+					dmgTurnOffAllIcons('R',portFC)
 					/*Adding  icon*/
-					isSent = isSent + objDMG.dmgIcon(Buffer.from([0x38,0x00,0xC2]),portS2)
+					isSent = isSent + objDMG.dmgIcon(Buffer.from([0x38,0x00,0xC2]),portFC)
 					return isSent;
 					
 					break;
@@ -1183,7 +1068,7 @@ function changeDMGData(panel,page,data){
 				
 					
 				default:
-					dmgTurnOffAllIcons('R',portS2)
+					dmgTurnOffAllIcons('R',portFC)
 					//console.log("Right Side : FC has No such stateto update data")
 					//dmgDataBuf = Buffer.from([0x00,0x00,0x00,0x00])
 					break;		
@@ -1429,7 +1314,7 @@ function dmgTurnOffAllIcons(mySide,myPort){
 	
 }
 
-function updateDisplayDMG(newSide,newPage,netDataL,netDataR){
+function pageUpdateDMG(newSide,newPage,netDataL,netDataR){
 	/*L2 data collect and analize for DMG Display
 	MODE 0
 		mcuData0[0] : Volatage
@@ -1458,7 +1343,7 @@ function updateDisplayDMG(newSide,newPage,netDataL,netDataR){
 	
 	return new Promise((resolve,reject) => {
 		if(newSide == 'L'){
-			console.log("DMG side L: "+newPage.toString()+" "+(liveDMGLeft.icon).toString()+"   | DMG side R: "+ (liveDMGRight.page).toString()+" "+(liveDMGRight.icon).toString()+" *")
+			//console.log("DMG side L: "+newPage.toString()+" "+(liveDMGLeft.icon).toString()+"   | DMG side R: "+ (liveDMGRight.page).toString()+" "+(liveDMGRight.icon).toString()+" *")
 			changeDMGPage('L',newPage);
 			changeDMGData('L',newPage,netDataL);
 			
@@ -1476,7 +1361,7 @@ function updateDisplayDMG(newSide,newPage,netDataL,netDataR){
 			resolve();
 		}
 		else if (newSide == 'R'){
-			console.log("DMG side L: "+(liveDMGLeft.page).toString()+" "+(liveDMGLeft.icon).toString()+" * | DMG side R: "+ newPage.toString()+" "+(liveDMGRight.icon).toString())
+			//console.log("DMG side L: "+(liveDMGLeft.page).toString()+" "+(liveDMGLeft.icon).toString()+" * | DMG side R: "+ newPage.toString()+" "+(liveDMGRight.icon).toString())
 			changeDMGPage('R',newPage);
 			changeDMGData('R',newPage,netDataR);
 			
@@ -1524,9 +1409,10 @@ voltLive
 var liveDMGLeft =   new LiveDataLEFT(0,0,0,23,45,99,67,89);//L2 does not have batt but it shows as 0 here %
 var liveDMGRight = new LiveDataRIGHT(0,0,0,33,54,56,78,72);
 
+/*
 function pageUpdateDMG(newSide,newPage,netDataL,netDataR){
 	return updateDisplayDMG(newSide,newPage,netDataL,netDataR);
-}
+}*/
 
 
 /* TESTING Value change */
@@ -1544,55 +1430,9 @@ let testID = setInterval(()=>{
 	}
 },500);
 
-module.exports = {readMCUData,writeMCUData,pageChange,pageUpdateDMG,newTap,gpio,mcuMonitor}
+module.exports = {readMCUData,writeMCUData,pageUpdateDMG,newTap,gpio,mcuMonitor}
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-/*
-Appendix:
-
-{"page":67, "wifi":3, "heat": 1}                                       //ALL
-{"page":68,"kwh":21.1,"cost":500.00,"time":7568,"wifi":3, "heat": 1}                       // Last CHARGE
-{"page":69,"id":"C8689","wifi":3, "heat": 1}                                               // VERIFYING
-{"page":70,"wifi":3, "heat": 1}                                                            // LOADING
-{"page":71,"id":"F0900","wifi":3, "heat": 1}                                               //FAILED
-{"page":72,"id":"A0090", "bal":8000,"time":8400,"wifi":3, "heat": 1}                       //PLUG YOUR EV
-{"page":73,"id":"H0890","cur":21.3,"kwh":24.1,"cost":10000.50,timer:1,"wifi":3, "heat": 1}   // CHARGING
-{"page":74,"id":"A0990","kwh":88.9,"cost":90000.98,"time":256400,"wifi":3, "heat": 1}      //UNPLUG YOUR EV
-{"page":75,"id":"F7890","kwh":40.7,"cost":9087,"time":89769,"error":92,"wifi":3, "heat": 1} //ERROR
-{"page":76,"id":"F0989","kwh":40.7,"cost":8907,"time":6789,"warn":2,"wifi":3, "heat": 1}    //WARNING
-
-***Must add 150 PAD before write JSON
-  // Write the data to the named pipe 
-  fs.writeSync(fd, data.padEnd(150)); // Node code
-
-page 67-76
-wifi 0-3
-heat 0,1
-timer 0,1
-time Total time in seconds
-id String
-
-Command flow for charging page:
-{"page":73,"id":"H0890","cur":21.3,"kwh":24.1,"cost":0,timer:1,"wifi":3, "heat": 1} // First Start timer.(timer:1)
-// Then continuously update liveDMGRight,kwh & cost.(timer:0)
-{"page":73,"id":"H0890","cur":49.8,"kwh":55.6,"cost":100.50,timer:0,"wifi":3, "heat": 1}
-
-
-command to write in to pipe
-'{ \"page\":'+page.toString()+',\"id\":\"A1234\",\"kwh\":34.7,\"cost\":'+mcuData[1].toString()+',\"time\":6789,\"bal\":6789.1,\"error\":'+mcuData[1].toString()+',\"warn\":3,\"cur\":34.9,\"timer\":'+t.toString()+',\"wifi\":2,\"heat\":'+heatWarning.toString()+'}' ;
-*/
 

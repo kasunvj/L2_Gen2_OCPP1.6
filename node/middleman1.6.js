@@ -319,7 +319,7 @@ function updateDisplay(displayState,id){
 				}
 			break;
 		
-		case 78: //OFFLINE
+		case 78: //OFFLINE 
 			displayString = '{ \"page\":78,\"wifi\":'+networkStrength.toString()+',\"heat\":'+heatWarning.toString()+'}';
 			break;
 				

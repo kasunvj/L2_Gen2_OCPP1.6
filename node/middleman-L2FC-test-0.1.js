@@ -1,19 +1,4 @@
-/* 
-Middleman-master V 0.1
-
-to controll Fast-Charger -- Over Serial1 ttyS1
-            L2 Charger   -- Over RS485   ttyS2
-			DGM Display  -- Over RS 485  ttyS2
-			LED Button   -- GPIO 5
-			
-from Inputs Tap Card     -- USB Serial    ACM0
-			Network      -- Over Wifi 
-							Over 4G
-			Push Button  -- GPIO interrupt GPIO 4
-			
-
-*/
-const middleman = require('./middleman1.6');
+const middleman = require('./middleman1.7');
 
 const readline = require('readline').createInterface({
   input: process.stdin,
@@ -134,43 +119,6 @@ function sleep(ms) {
   });
 }
 
-async function gpioTest(){
-	
-	await led.create(5,'out',0);
-	/*Push button is taken from reading the /proc/gpio_intr 
-	  No need to initate it then
-	*/
-	await pushButton.create(4,'in',0);
-	
-	
-	middleman.pageChange(70);
-	
-	const blinkLed = setInterval(blink, 1000);
-	
-	
-	
-	while(1){
-		
-		if(await pushButton.isPressed()){
-			console.log("*")
-			await delay(500);
-		}
-		
-		
-		newLeft = parseInt(await readLineAsync("Page L(0-5)?"));
-		newRight = parseInt(await readLineAsync("Page R(0-6)?"));
-		console.log("Your response was: " +parseInt(dmgSide.myLeft) +" "+parseInt(dmgSide.myRight));
-		
-		
-		
-		}
-		
-	
-	
-	//clearInterval(blinkLed);
-	//led.off();
-}
-
 async function die(){
 	let exit = await led.unexport()
 	
@@ -188,6 +136,31 @@ const readLineAsync = msg => {
     });
   });
 }
+
+async function gpioTest(){
+	
+	await led.create(5,'out',0);
+	/*Push button is taken from reading the /proc/gpio_intr 
+	  No need to initate it then
+	*/
+	await pushButton.create(4,'in',0);
+	
+	const blinkLed = setInterval(blink, 1000);
+	
+	while(1){
+		
+		if(await pushButton.isPressed()){
+			console.log("*")
+			await delay(500);
+		}
+		
+		
+		newLeft = parseInt(await readLineAsync("Page L(0-5)?"));
+		newRight = parseInt(await readLineAsync("Page R(0-6)?"));
+		console.log("Your response was: " +parseInt(dmgSide.myLeft) +" "+parseInt(dmgSide.myRight));
+		}
+}
+
 
 async function controllerPolling(){
 	
