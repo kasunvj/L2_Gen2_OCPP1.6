@@ -1,4 +1,5 @@
-const middleman = require('./middleman1.7');
+const middleman = require('./middleman1.8');
+const chargerData = require("./stamp_custom_modules/mcuMsgHandle5")
 
 const readline = require('readline').createInterface({
   input: process.stdin,
@@ -176,10 +177,21 @@ async function controllerPolling(){
 	  dataL.errorL2 = JSON.parse(data).error_state;
 	});
 	//console.log("-----")
+	
+	
+	
+	
 	middleman.writeMCUData('M',dataL.getStateL2(),0,dataL.getErrorL2()); //---- L2
 	middleman.writeMCUData('m','',0,dataL.getErrorL2()); // ----- FC
 	
 	
+	
+	
+	
+	
+
+	console.log("L2 Data: ",chargerData.L2charger.getData(),chargerData.L2charger.getState())
+	console.log("FC Data: ",chargerData.Fcharger.getData(),chargerData.L2charger.getState())
 	
 	if( newLeft !=  dmgSide.myLeft){
 		
@@ -207,7 +219,7 @@ gpioTest();
 
 let controllerPollingID = setInterval(()=>controllerPolling(),2000);
 
-//let monitorID = setInterval(()=>middleman.mcuMonitor('M',dataL.getStateL2()),1000);
+let monitorID = setInterval(()=>middleman.mcuMonitor('FC',dataL.getStateL2()),1000);
 
 
 
