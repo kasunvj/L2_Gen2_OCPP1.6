@@ -13,7 +13,7 @@ const {ReadlineParser} = require('@serialport/parser-readline');
 const {exec}=require("child_process");
 const {execSync} = require('child_process');
 
-var obj = require("./stamp_custom_modules/mcuMsgHandle3");
+var obj = require("./stamp_custom_modules/mcuMsgHandle4");
 var objTap = require("./stamp_custom_modules/tapcardGet");
 var objNet = require("./stamp_custom_modules/networkCheck");
 var objDMG = require("./stamp_custom_modules/controlDMG");
@@ -25,13 +25,13 @@ const data = fsmm.readFileSync('config-system.json','utf8');
 const configObj = JSON.parse(data)
 
 class Charger{
-	constructor(port,baud){
-		this.port = port
+	constructor(path,baud){
+		this.path = path
 		this.baud = baud
 	}
 	
-	getPort(){
-		return this.port
+	getPath(){
+		return this.path
 	}
 	
 	getBaud(){
@@ -39,54 +39,103 @@ class Charger{
 	}
 }
 
-var L2 = new Charger('cd',0)
-var FC = new Charger('dcd',0)
+class Display{
+	constructor(path,baud,port,parser){
+		this.path = path
+		this.baud = baud
+		this.port = port
+	}
+	
+	getPath(){
+		return this.path
+	}
+	
+	getBaud(){
+		return this.baud
+	}
+	
+	getPort(){
+		return this.port
+	}
+	
+	getParser(){
+		return this.parser
+	}
+	
+}
+
+var L2 = new Charger('',0)
+var FC = new Charger('',0)
+var DISP = new Display('',0,'','')
 
 console.log("Charger Configuration-----------+")
 console.log("Charger id : ",configObj.c_id);
 for (var i=0;i<2;i++){
 	if(configObj.charger_sys[i].dev=='/dev/ttyS1'){
 		if(configObj.charger_sys[i].chtype == 'L2'){
-			console.log('ttyS1 : L2',configObj.charger_sys[i].baud)
-			L2.port = '/dev/ttyS1'
+			L2.path = '/dev/ttyS1'
 			L2.baud = parseInt(configObj.charger_sys[i].baud)
 		}
 		else if(configObj.charger_sys[i].chtype == 'FC'){
-			console.log('ttyS1 : FC',configObj.charger_sys[i].baud)
-			FC.port = '/dev/ttyS1'
+			FC.path = '/dev/ttyS1'
 			FC.baud = parseInt(configObj.charger_sys[i].baud)
 		}
+		else{
+		console.log("Wrong Charger type configuration!")
+		}
+		
 	}
 	else if(configObj.charger_sys[i].dev=='/dev/ttyS2'){
 		if(configObj.charger_sys[i].chtype == 'L2'){
-			console.log('ttyS2 : L2',configObj.charger_sys[i].baud)
-			L2.port = '/dev/ttyS2'
+			L2.path = '/dev/ttyS2'
 			L2.baud = parseInt(configObj.charger_sys[i].baud)
 		}
 		else if(JSON.parse(data).charger_sys[i].chtype == 'FC'){
-			console.log('ttyS2 : FC',configObj.charger_sys[i].baud)
-			FC.port = '/dev/ttyS2'
+			console.log('FC   : ttyS2',configObj.charger_sys[i].baud)
+			FC.path = '/dev/ttyS2'
 			FC.baud = parseInt(configObj.charger_sys[i].baud)
-			
-		}	
+		}
+		else{
+			console.log("Wrong Charger type configuration!")
+		}		
 	}
 	else{
-		console.log("Wrong Configuration!")
+		console.log("Wrong port type configuration!")
 	}
 }
 
-console.log("--------------------------------+")
 
-
-const portL2 = new SerialPort({path:L2.getPort(),baudRate:L2.getBaud(),parity: 'even' });
+const portL2 = new SerialPort({path:L2.getPath(),baudRate:L2.getBaud()});
 const parserFixLenL2 = portL2.pipe(new ByteLengthParser({ length: 20 }));
 
-const portFC = new SerialPort({path:FC.getPort(),baudRate:FC.getBaud()});
-const parserFixLenDMG = portFC.pipe(new ByteLengthParser({ length: 10 }));
+const portFC = new SerialPort({path:FC.getPath(),baudRate:FC.getBaud()});
 const parserFixLenFC = portFC.pipe(new ByteLengthParser({ length: 20 }));
 
 const portACM0 = new SerialPort({ path: '/dev/ttyACM0', baudRate: 9600});
 const parserReadLn = portACM0.pipe(new ReadlineParser({ delimiter: '\r\n'}));
+
+
+
+if(configObj.disp_sys[0].conn_bus == "L2"){
+	DISP.path = L2.path;
+	DISP.baud = L2.baud;
+	DISP.port = portL2;
+	DISP.parser = portL2.pipe(new ByteLengthParser({ length: 10 }));
+}
+else if(configObj.disp_sys[0].conn_bus == "FC"){
+	DISP.path = FC.path;
+	DISP.baud = FC.baud;
+	DISP.port = portFC;
+	DISP.parser = portFC.pipe(new ByteLengthParser({ length: 10 }));
+}
+else{
+	console.log("Wrong display Configuration!")
+}
+
+console.log('L2   :',portL2.path,portL2.baudRate);
+console.log('FC   :',portFC.path,portFC.baudRate);
+console.log('DISP :',DISP.port.path,DISP.port.baudRate);
+console.log("--------------------------------+")
 
 
 var i = 0;
@@ -190,27 +239,32 @@ function listenTapCard(){
 }
 
 function readMCUL2(){
-	console.log('opened');
+	console.log('opened L2');
 	parserFixLenL2.on('data', function(data){
-		if(obj.mcuMsgDecode(data) == 0){ 
+		console.log('\x1b[96m')
+		if(obj.mcuMsgDecode(data) == 0){			
 			L2dataEmitter.emit('data',obj.mcuDataM0,obj.mcuDataM1,obj.mcuStateL2)
 			//nothing to be  done, calling mcuMsgDecode also save latest values
 			//and update values that uses for DMG Display
 			//updateDisplayDMG(liveDMGLeft,liveDMGLeft);
 		}
+		console.log('\x1b[0m')
+		
 		
 	});
 }
 
 function readMCUFC(){
-	console.log('opened');
+	console.log('opened FC');
 	parserFixLenFC.on('data', function(data){
+		console.log('\x1b[95m')
 		if(obj.mcuMsgDecode(data) == 0){ 
 			//L2dataEmitter.emit('data',obj.mcuDataM0,obj.mcuDataM1,obj.mcuStateL2)
 			//nothing to be  done, calling mcuMsgDecode also save latest values
 			//and update values that uses for DMG Display
 			//updateDisplayDMG(liveDMGLeft,liveDMGLeft);
 		}
+		console.log('\x1b[0m')
 		
 	});
 }
@@ -389,10 +443,11 @@ class gpio{
 // Async running functions
 //========================================
 
-/* Read from MCU L2 and FC*/
-portL2.on('open',readMCUL2); 
+/* Read from MCU L2*/
+portL2.on('open',readMCUL2);  //---- L2
 
-portFC.on('open',readMCUFC)
+/* Read from MCU FC*/
+portFC.on('open',readMCUFC);  // ---- FC
 
 		
 /* Read from Tap Card*/
@@ -401,6 +456,9 @@ portACM0.on('open',listenTapCard);
 
 /*Updating network status*/
 let networkcheckID = setInterval(()=>updateNet(),5000);
+
+
+/*GPIO*/
 
 
 /*Graceful kill*/
@@ -438,7 +496,7 @@ Right (GBT)
 -------------------------
 */
 
-function changeDMGPage(panel,stateNo){
+function changeDMGPage(panel,stateNo,port){
 	var page = 0;
 	isSent = 0;
 	
@@ -749,13 +807,13 @@ function changeDMGPage(panel,stateNo){
 	
 	//console.log("Side "+panel +" State change to "+stateNo+" | Page No change to (0-37)"+page)
 	
-	isSent = isSent + objDMG.dmgPageChangeMsg(page,portFC);
+	isSent = isSent + objDMG.dmgPageChangeMsg(page,port);
 	
 	return isSent;
 	
 }
 
-function changeDMGData(panel,page,data){
+function changeDMGData(panel,page,data,port){
 	var dmgDataBuf = Buffer.alloc(4);
 	isSent = 0;
 	switch(panel){
@@ -764,34 +822,35 @@ function changeDMGData(panel,page,data){
 				case 0://last charge[chargerID,LastCharge%,time,Cost,kwhRate]
 					liveDMGLeft.icon = 0
 					/* Charger ID*/
-					cID = Buffer.from((data.getcid()).toString(16).padStart(4,'0'),'hex');
-					dmgDataBuf = Buffer.concat([Buffer.from([0x11,0x00]),cID],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC); 
+					cID = Buffer.from((data.getcid()).toString(16),'hex');
+					console.log("L ",data.getcid(),cID)
+					dmgDataBuf = Buffer.concat([Buffer.from([0x11,0x00]),cID],7);
+					isSent = isSent + objDMG.dmgCIDChangeMsg(dmgDataBuf,port); 
 					
 					/* Last Charge %*/
 					lastCharge = Buffer.from((data.getlastChargePt()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x11,0x20]),lastCharge],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC);
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,port);
 					
 					/* Charger Operates Power*/
 					cpower = Buffer.from((data.getchargerPower()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x11,0x40]),cpower],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC);
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,port);
 					
 					/* Last Time*/
 					lastTime = Buffer.from((data.getlastTime()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x13,0x40]),lastTime],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC);
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,port);
 					
 					/* Last Price (Original value should X10)*/ 
 					lastPrice = Buffer.from((data.getlastCost()*10).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x13,0x60]),lastPrice],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC);
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,port);
 					
 					/* Charger Operates Price per KWh*/
 					cprice = Buffer.from((data.getchargerPrice()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x13,0x80]),cprice],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC);
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,port);
 					
 					return isSent;
 					
@@ -804,35 +863,35 @@ function changeDMGData(panel,page,data){
 					/*Live battery %*/
 					battNow = Buffer.from((liveDMGLeft.getbattPLive()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x11,0x60]),battNow],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC);
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,port);
 					
 					/* Live Batt Icon*/
-					isSent = isSent + objDMG.dmgIcon(getBattIcon('L',liveDMGLeft.getbattPLive(),portFC),portFC);
+					isSent = isSent + objDMG.dmgIcon(getBattIcon('L',liveDMGLeft.getbattPLive(),port),port);
 					
 					/*Live cost*/
 					costNow = Buffer.from((liveDMGLeft.getcostLive()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x12,0x00]),costNow],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC); 
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,port); 
 					
 					/*Live bal*/
 					balNow = Buffer.from((liveDMGLeft.getbalLive()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x12,0x40]),balNow],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC); 
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,port); 
 					
 					/*Time till full*/
 					timetillfullNow = Buffer.from((liveDMGLeft.gettimetillfullLive()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x11,0x80]),timetillfullNow],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC);
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,port);
 					
 					/*Live current*/
 					currNow = Buffer.from((liveDMGLeft.getcurrLive()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x12,0x60]),currNow],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC);
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,port);
 					
 					/*Live volt*/
 					voltNow = Buffer.from((liveDMGLeft.getvoltLive()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x12,0x80]),voltNow],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC);
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,port);
 					
 					
 					
@@ -842,15 +901,15 @@ function changeDMGData(panel,page,data){
 				
 				case 5://empty page
 					liveDMGLeft.icon = 5
-					dmgTurnOffAllIcons('L',portFC)
+					dmgTurnOffAllIcons('L',port)
 					break;
 				
 				case 6://charging full icon
 					liveDMGLeft.icon = 6
 					/*Reove all the icons */
-					dmgTurnOffAllIcons('L',portFC)
+					dmgTurnOffAllIcons('L',port)
 					/*Adding icon*/
-					isSent = isSent + objDMG.dmgIcon(Buffer.from([0x12,0x00,0x84]),portFC)
+					isSent = isSent + objDMG.dmgIcon(Buffer.from([0x12,0x00,0x84]),port)
 					return isSent;
 					
 					break;
@@ -858,9 +917,9 @@ function changeDMGData(panel,page,data){
 				case 7:// insufficient balance
 					liveDMGLeft.icon = 7
 					/*Reove all the icons */
-					dmgTurnOffAllIcons('L',portFC)
+					dmgTurnOffAllIcons('L',port)
 					/*Adding icon*/
-					isSent = isSent + objDMG.dmgIcon(Buffer.from([0x14,0x00,0xB8]),portFC)
+					isSent = isSent + objDMG.dmgIcon(Buffer.from([0x14,0x00,0xB8]),port)
 					return isSent;
 					
 					break;
@@ -868,9 +927,9 @@ function changeDMGData(panel,page,data){
 				case 8:// inval card icon
 					liveDMGLeft.icon = 8
 					/*Reove all the icons */
-					dmgTurnOffAllIcons('L',portFC)
+					dmgTurnOffAllIcons('L',port)
 					/*Adding icon*/
-					isSent = isSent + objDMG.dmgIcon(Buffer.from([0x16,0x00,0xBA]),portFC)
+					isSent = isSent + objDMG.dmgIcon(Buffer.from([0x16,0x00,0xBA]),port)
 					return isSent;
 					
 					break;
@@ -878,9 +937,9 @@ function changeDMGData(panel,page,data){
 				case 9:// error icon
 					liveDMGLeft.icon = 9
 					/*Reove all the icons */
-					dmgTurnOffAllIcons('L',portFC)
+					dmgTurnOffAllIcons('L',port)
 					/*Adding  icon*/
-					isSent = isSent + objDMG.dmgIcon(Buffer.from([0x18,0x00,0xBC]),portFC)
+					isSent = isSent + objDMG.dmgIcon(Buffer.from([0x18,0x00,0xBC]),port)
 					return isSent;
 					
 					break;
@@ -891,7 +950,7 @@ function changeDMGData(panel,page,data){
 					
 				default:
 					//console.log("Left Side : L2 has No such state to update data")
-					dmgTurnOffAllIcons('L',portFC)
+					dmgTurnOffAllIcons('L',port)
 					break;
 						
 			}
@@ -899,37 +958,38 @@ function changeDMGData(panel,page,data){
 			
 		case 'R':
 			switch(page){
-				case 0://IDELING PAGE[chargerID,LastCharge%,time,Cost,kwhRate]
+				case 0://IDELING  PAGE[chargerID,LastCharge%,time,Cost,kwhRate]
 					liveDMGRight.icon = 0
 					/*Charger ID*/
-					cID = Buffer.from((data.getcid()).toString(16).padStart(4,'0'),'hex');
-					dmgDataBuf = Buffer.concat([Buffer.from([0x11,0x10]),cID],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC); 
+					cID = Buffer.from((data.getcid()).toString(16),'hex');
+					console.log("R ",data.getcid(),cID)
+					dmgDataBuf = Buffer.concat([Buffer.from([0x11,0x10]),cID],7);
+					isSent = isSent + objDMG.dmgCIDChangeMsg(dmgDataBuf,port); 
 					
 					/*Last Charge %*/
 					lastCharge = Buffer.from((data.getlastChargePt()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x11,0x30]),lastCharge],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC);
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,port);
 					
 					/* Charger Operates*/
 					cpower = Buffer.from((data.getchargerPower()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x11,0x50]),cpower],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC);
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,port);
 					
 					/* Last Time*/
 					lastTime = Buffer.from((data.getlastTime()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x13,0x50]),lastTime],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC);
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,port);
 					
 					/* Last Price (Original value should X10)*/
 					lastPrice = Buffer.from((data.getlastCost()*10).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x13,0x70]),lastPrice],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC);
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,port);
 					
 					/* Charger Operates Price per KWh*/
 					cprice = Buffer.from((data.getchargerPrice()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x13,0x90]),cprice],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC);
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,port);
 					
 					return isSent;
 					
@@ -942,7 +1002,7 @@ function changeDMGData(panel,page,data){
 					const usernameFirstBuf = Buffer.from(nameFirst.toString('hex'));
 					const dmgnameBuf1 = Buffer.concat([Buffer.from([0x13,0x00]),usernameFirstBuf],2+nameFirst.length); //2 is the length of first buffer
 					
-					isSent = isSent + objDMG.dmgUsernameMsg(dmgnameBuf1,nameFirst.length,portFC);
+					isSent = isSent + objDMG.dmgUsernameMsg(dmgnameBuf1,nameFirst.length,port);
 					
 					/* Usr Name Last*/
 					const nameLast = data.getunameLast();
@@ -954,12 +1014,12 @@ function changeDMGData(panel,page,data){
 					console.log("Last name length :",nameLast.length)
 					console.log("Last:",usernameLastBuf )
 					
-					isSent = isSent + objDMG.dmgUsernameMsg(dmgnameBuf2,nameLast.length,portFC);
+					isSent = isSent + objDMG.dmgUsernameMsg(dmgnameBuf2,nameLast.length,port);
 					
 					/* User Balance*/
 					userbal = Buffer.from((data.getubal()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x13,0x10]),userbal],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC);
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,port);
 					
 					return isSent;
 					break;
@@ -970,51 +1030,51 @@ function changeDMGData(panel,page,data){
 					/*Live battery %*/
 					battNow = Buffer.from((liveDMGRight.getbattPLive()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x11,0x70]),battNow],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC);
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,port);
 					
 					/* Live Batt Icon*/
-					isSent = isSent + objDMG.dmgIcon(getBattIcon('R',liveDMGRight.getbattPLive(),portFC),portFC);
+					isSent = isSent + objDMG.dmgIcon(getBattIcon('R',liveDMGRight.getbattPLive(),port),port);
 					
 					/*Live cost*/
 					costNow = Buffer.from((liveDMGRight.getcostLive()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x12,0x10]),costNow],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC);
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,port);
 					
 					/*Live bal*/
 					balNow = Buffer.from((liveDMGRight.getbalLive()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x12,0x50]),balNow],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC); 
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,port); 
 					
 					/*Time till full*/
 					timetillfullNow = Buffer.from((liveDMGRight.gettimetillfullLive()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x11,0x90]),timetillfullNow],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC);
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,port);
 					
 					/*Live current*/
 					currNow = Buffer.from((liveDMGRight.getcurrLive()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x12,0x70]),currNow],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC);
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,port);
 					
 					/*Live volt*/
 					voltNow = Buffer.from((liveDMGRight.getvoltLive()).toString(16).padStart(4,'0'),'hex');
 					dmgDataBuf = Buffer.concat([Buffer.from([0x12,0x90]),voltNow],4);
-					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,portFC);
+					isSent = isSent + objDMG.dmgDataChangeMsg(dmgDataBuf,port);
 					
 					/*Charging mode*/
 					if(data.getcProfile() == 1){
-						isSent = isSent + objDMG.dmgIcon(Buffer.from([0x84,0x00,0x8E]),portFC);
+						isSent = isSent + objDMG.dmgIcon(Buffer.from([0x84,0x00,0x8E]),port);
 					}
 					else if(data.getcProfile() == 2){
-						isSent = isSent + objDMG.dmgIcon(Buffer.from([0x86,0x00,0x90]),portFC);
+						isSent = isSent + objDMG.dmgIcon(Buffer.from([0x86,0x00,0x90]),port);
 					}
 					else if(data.getcProfile() == 3){
-						isSent = isSent + objDMG.dmgIcon(Buffer.from([0x88,0x00,0x92]),portFC);
+						isSent = isSent + objDMG.dmgIcon(Buffer.from([0x88,0x00,0x92]),port);
 					}
 					else if(data.getcProfile() == 4){
-						isSent = isSent + objDMG.dmgIcon(Buffer.from([0x90,0x00,0x94]),portFC);
+						isSent = isSent + objDMG.dmgIcon(Buffer.from([0x90,0x00,0x94]),port);
 					}
 					else{
-						dmgTurnOffAllIcons('R',portFC)
+						dmgTurnOffAllIcons('R',port)
 					}
 					
 					return isSent;
@@ -1022,15 +1082,15 @@ function changeDMGData(panel,page,data){
 				
 				case 6://empty page
 					liveDMGRight.icon = 0
-					dmgTurnOffAllIcons('R',portFC)
+					dmgTurnOffAllIcons('R',port)
 					break;
 				
 				case 7://charging full icon
 					liveDMGRight.icon = 7
 					/*Reove all the icons */
-					dmgTurnOffAllIcons('R',portFC)
+					dmgTurnOffAllIcons('R',port)
 					/*Adding icon*/
-					isSent = isSent + objDMG.dmgIcon(Buffer.from([0x32,0x00,0x96]),portFC)
+					isSent = isSent + objDMG.dmgIcon(Buffer.from([0x32,0x00,0x96]),port)
 					return isSent;
 					
 					break;
@@ -1038,9 +1098,9 @@ function changeDMGData(panel,page,data){
 				case 8:// insufficient balance
 					liveDMGRight.icon = 8
 					/*Reove all the icons */
-					dmgTurnOffAllIcons('R',portFC)
+					dmgTurnOffAllIcons('R',port)
 					/*Adding icon*/
-					isSent = isSent + objDMG.dmgIcon(Buffer.from([0x34,0x00,0xBE]),portFC)
+					isSent = isSent + objDMG.dmgIcon(Buffer.from([0x34,0x00,0xBE]),port)
 					return isSent;
 					
 					break;
@@ -1048,9 +1108,9 @@ function changeDMGData(panel,page,data){
 				case 9:// inval card icon
 					liveDMGRight.icon = 9
 					/*Reove all the icons */
-					dmgTurnOffAllIcons('R',portFC)
+					dmgTurnOffAllIcons('R',port)
 					/*Adding icon*/
-					isSent = isSent + objDMG.dmgIcon(Buffer.from([0x36,0x00,0xC0]),portFC)
+					isSent = isSent + objDMG.dmgIcon(Buffer.from([0x36,0x00,0xC0]),port)
 					return isSent;
 					
 					break;
@@ -1058,9 +1118,9 @@ function changeDMGData(panel,page,data){
 				case 10:// error icon
 					liveDMGRight.icon = 10
 					/*Reove all the icons */
-					dmgTurnOffAllIcons('R',portFC)
+					dmgTurnOffAllIcons('R',port)
 					/*Adding  icon*/
-					isSent = isSent + objDMG.dmgIcon(Buffer.from([0x38,0x00,0xC2]),portFC)
+					isSent = isSent + objDMG.dmgIcon(Buffer.from([0x38,0x00,0xC2]),port)
 					return isSent;
 					
 					break;
@@ -1068,7 +1128,7 @@ function changeDMGData(panel,page,data){
 				
 					
 				default:
-					dmgTurnOffAllIcons('R',portFC)
+					dmgTurnOffAllIcons('R',port)
 					//console.log("Right Side : FC has No such stateto update data")
 					//dmgDataBuf = Buffer.from([0x00,0x00,0x00,0x00])
 					break;		
@@ -1344,43 +1404,49 @@ function pageUpdateDMG(newSide,newPage,netDataL,netDataR){
 	return new Promise((resolve,reject) => {
 		if(newSide == 'L'){
 			//console.log("DMG side L: "+newPage.toString()+" "+(liveDMGLeft.icon).toString()+"   | DMG side R: "+ (liveDMGRight.page).toString()+" "+(liveDMGRight.icon).toString()+" *")
-			changeDMGPage('L',newPage);
-			changeDMGData('L',newPage,netDataL);
-			
+			changeDMGPage('L',newPage,DISP.port);
+			changeDMGData('L',newPage,netDataL,DISP.port);
+			console.log("--L page and data changed")
 			/*If tehre is an icon to keep from the previous state pass the state saved in icon attribute*/
 			if(liveDMGRight.getIcon() == 0){
-				changeDMGPage('R',liveDMGRight.page);
-				changeDMGData('R',liveDMGRight.page,netDataR);
+				changeDMGPage('R',liveDMGRight.page,DISP.port);
+				changeDMGData('R',liveDMGRight.page,netDataR,DISP.port);
+				console.log("--L No iocons to on")
 				}
 			else{
 				console.log("R changinf for icon")
-				changeDMGPage('R',liveDMGRight.icon);
-				changeDMGData('R',liveDMGRight.icon,netDataR);
+				changeDMGPage('R',liveDMGRight.icon,DISP.port);
+				changeDMGData('R',liveDMGRight.icon,netDataR,DISP.port);
+				console.log("--L icons on")
 			}
 			
 			resolve();
 		}
 		else if (newSide == 'R'){
 			//console.log("DMG side L: "+(liveDMGLeft.page).toString()+" "+(liveDMGLeft.icon).toString()+" * | DMG side R: "+ newPage.toString()+" "+(liveDMGRight.icon).toString())
-			changeDMGPage('R',newPage);
-			changeDMGData('R',newPage,netDataR);
-			
+			changeDMGPage('R',newPage,DISP.port);
+			changeDMGData('R',newPage,netDataR,DISP.port);
+			console.log("--R page and data changed")
 			/*If tehre is an icon to keep from the previous state pass the state saved in icon attribute*/
 			if(liveDMGLeft.getIcon() == 0){
-				changeDMGPage('L',liveDMGLeft.page);
-				changeDMGData('L',liveDMGLeft.page,netDataL);
+				changeDMGPage('L',liveDMGLeft.page,DISP.port);
+				changeDMGData('L',liveDMGLeft.page,netDataL,DISP.port);
+				console.log("--R No iocons to on")
 			}
 			else{
 				console.log("L changinf for icon")
-				changeDMGPage('L',liveDMGLeft.icon);
-				changeDMGData('L',liveDMGLeft.icon,netDataL);
+				changeDMGPage('L',liveDMGLeft.icon,DISP.port);
+				changeDMGData('L',liveDMGLeft.icon,netDataL,DISP.port);
+				console.log("--R icons on")
 			}
 			
 			
 			
 			resolve();
 		}
-	}).catch((err)=> console.error(err))
+	}).catch((err)=>{ 
+	console.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+	console.error(err)})
 	
 }
 

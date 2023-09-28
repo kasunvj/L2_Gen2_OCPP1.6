@@ -11,6 +11,11 @@ function dmgPageChangeMsg(page,port){
 	
 }
 
+function dmgCIDChangeMsg(data,port){
+	totalBuftoDMG = Buffer.concat([Buffer.from([0x5A,0xA5,0x08,0x82]),data],11);
+	return sendDMGMessage(totalBuftoDMG,port);
+}
+
 function dmgDataChangeMsg(data,port){
 	totalBuftoDMG = Buffer.concat([Buffer.from([0x5A,0xA5,0x05,0x82]),data],8);
 	
@@ -33,7 +38,7 @@ function dmgIcon(data,port){
 
 
 function sendDMGMessage(sendBuf,port){
-	//console.log(sendBuf);
+	//console.log(sendBuf,port.path,port.baudRate);
 	
 	try{
 		port.write(sendBuf, function(err) {
@@ -52,4 +57,4 @@ function sendDMGMessage(sendBuf,port){
 	
 }
 
-module.exports = {dmgPageChangeMsg,dmgDataChangeMsg,dmgUsernameMsg,dmgIcon}
+module.exports = {dmgPageChangeMsg,dmgCIDChangeMsg,dmgDataChangeMsg,dmgUsernameMsg,dmgIcon}

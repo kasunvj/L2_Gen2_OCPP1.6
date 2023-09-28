@@ -1,3 +1,18 @@
+/* 
+Middleman-master V 0.1
+
+to controll Fast-Charger -- Over Serial1 ttyS1
+            L2 Charger   -- Over RS485   ttyS2
+			DGM Display  -- Over RS 485  ttyS2
+			LED Button   -- GPIO 5
+			
+from Inputs Tap Card     -- USB Serial    ACM0
+			Network      -- Over Wifi 
+							Over 4G
+			Push Button  -- GPIO interrupt GPIO 4
+			
+
+*/
 const middleman = require('./middleman1.7');
 
 const readline = require('readline').createInterface({
@@ -46,17 +61,13 @@ cProfile - User Charging profile
 */
 
 class NetworkDataLEFT{
-	constructor(cid,lastChargePt,lastTime,lastCost,chargerPower,chargerPrice,unameFirst,unameLast,ubal,cProfile,stateL2,errorL2){
+	constructor(cid,lastChargePt,lastTime,lastCost,chargerPower,chargerPrice,stateL2,errorL2){
 		this.cid = cid;
 		this.lastChargePt = lastChargePt;
 		this.lastTime = lastTime;
 		this.lastCost = lastCost;
 		this.chargerPower = chargerPower;
 		this.chargerPrice = chargerPrice;
-		this.unameFirst = unameFirst;
-		this.unameLast = unameLast;
-		this.ubal = ubal;
-		this.cProfile = cProfile;
 		this.stateL2 = stateL2;
 		this.errorL2 = errorL2;
 		
@@ -78,7 +89,7 @@ class NetworkDataLEFT{
 };
 
 class NetworkDataRIGHT{
-	constructor(cid,lastChargePt,lastTime,lastCost,chargerPower,chargerPrice,unameFirst,unameLast,ubal,cProfile,stateFC,errorFC){
+	constructor(cid,lastChargePt,lastTime,lastCost,chargerPower,chargerPrice,unameFirst,unameLast,ubal,cProfile){
 		this.cid = cid;
 		this.lastChargePt = lastChargePt;
 		this.lastTime = lastTime;
@@ -89,8 +100,6 @@ class NetworkDataRIGHT{
 		this.unameLast = unameLast;
 		this.ubal = ubal;
 		this.cProfile = cProfile;
-		this.stateFC = stateFC;
-		this.errorFC = errorFC;
     }
 	getData(){
 		return [this.lastChargePt,this.lastTime ,this.lastCost];
@@ -125,6 +134,43 @@ function sleep(ms) {
   });
 }
 
+async function gpioTest(){
+	
+	await led.create(5,'out',0);
+	/*Push button is taken from reading the /proc/gpio_intr 
+	  No need to initate it then
+	*/
+	await pushButton.create(4,'in',0);
+	
+	
+	middleman.pageChange(77);
+	
+	const blinkLed = setInterval(blink, 1000);
+	
+	
+	
+	while(1){
+		
+		if(await pushButton.isPressed()){
+			console.log("*")
+			await delay(500);
+		}
+		
+		
+		newLeft = parseInt(await readLineAsync("Page L(0-5)?"));
+		newRight = parseInt(await readLineAsync("Page R(0-6)?"));
+		console.log("Your response was: " +parseInt(dmgSide.myLeft) +" "+parseInt(dmgSide.myRight));
+		
+		
+		
+		}
+		
+	
+	
+	//clearInterval(blinkLed);
+	//led.off();
+}
+
 async function die(){
 	let exit = await led.unexport()
 	
@@ -143,31 +189,6 @@ const readLineAsync = msg => {
   });
 }
 
-async function gpioTest(){
-	
-	await led.create(9,'out',0);
-	/*Push button is taken from reading the /proc/gpio_intr 
-	  No need to initate it then
-	*/
-	await pushButton.create(4,'in',0);
-	
-	const blinkLed = setInterval(blink, 100);
-	
-	while(1){
-		
-		if(await pushButton.isPressed()){
-			console.log("*")
-			await delay(500);
-		}
-		
-		
-		newLeft = parseInt(await readLineAsync("Page L(0-5)?"));
-		newRight = parseInt(await readLineAsync("Page R(0-6)?"));
-		console.log("Your response was: " +parseInt(dmgSide.myLeft) +" "+parseInt(dmgSide.myRight));
-		}
-}
-
-
 async function controllerPolling(){
 	
 	fs.readFile('net-state.json', 'utf8', (err, data) => {
@@ -175,9 +196,9 @@ async function controllerPolling(){
 	  dataL.stateL2 = JSON.parse(data).net_state;
 	  dataL.errorL2 = JSON.parse(data).error_state;
 	});
-	//console.log("-----")
-	middleman.writeMCUData('M',dataL.getStateL2(),0,dataL.getErrorL2()); //---- L2
-	middleman.writeMCUData('m','',0,dataL.getErrorL2()); // ----- FC
+	
+	middleman.writeMCUData('M',dataL.getStateL2(),0,dataL.getErrorL2());
+	//middleman.writeMCUData('m','A');
 	
 	
 	
@@ -205,7 +226,7 @@ var pushButton = new middleman.gpio()
 
 gpioTest();
 
-let controllerPollingID = setInterval(()=>controllerPolling(),2000);
+let controllerPollingID = setInterval(()=>controllerPolling(),500);
 
 //let monitorID = setInterval(()=>middleman.mcuMonitor('M',dataL.getStateL2()),1000);
 
@@ -222,10 +243,6 @@ lastTime - Last Charge Time
 lastCost - Last Charge Cost X 10
 chargerPower - Last Charge Power 
 chargerPrice - Charger Price Per KWh
-(N/A) unameFirst - First name 
-(N/A) unameLast - Last Name
-(N/A) ubal - User balance
-(N/A) charging mode
 stateL2 - State of L2 charger
 errorL2 - error of L2 charger
 
@@ -244,21 +261,18 @@ charging mode
 	2 - to 90%
 	3 - to 15 mins
 	4 - to 30 mins
-stateL2 - State of FC charger
-errorL2 - error of FC charger
 ---------------------------------------*/
 
 
-var dataL = new NetworkDataLEFT(1111,11,11,1111,11,111,"AAAA","BBBBB",111,0,'IDLE','');
-var dataR = new NetworkDataRIGHT(2222,22,22,2222,22,222,"Kasun","Payalath",222,1,'IDLE','');
+var dataL = new NetworkDataLEFT(9999,98,999,567.8,87,235.5,'IDLE','');
+var dataR = new NetworkDataRIGHT(9999,99,999,3450.7,67,567.8,"ABCD","ABCDEFGHIJKL",199.99,1);
 
 var dmgSide= new mySide(0,0);
 
 
-/*DGM Page Initialize*/
+
 let completeLscreen = middleman.pageUpdateDMG('L', parseInt(dmgSide.myLeft), dataL, dataR);
 let completeRscreen = middleman.pageUpdateDMG('R', parseInt(dmgSide.myRight), dataL, dataR);
-
 let dmgLeftID;
 let dmgRightID;
 

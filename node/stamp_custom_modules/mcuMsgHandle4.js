@@ -45,6 +45,7 @@ class  DataMcuM1{
 			}
 };
 
+
 class StateMcu{
 	constructor(state,activityState,netRequest,powerError,generalError){
 		this.state = state
@@ -86,14 +87,46 @@ totalBufIn  23 43 c4 20 02 00 00 00 00 01 00 00 a1 0a 00 00 13 13 2a 0a
                0  1  2  3  4  5  6  7  8  9  10 11 12 13 14
 dataBufIn      43 c4 20 02 00 00 00 00 01 00 00 9e 0a 00 00
                C  |     |        |      
-                  +L2 Controler side State  			   
-                        +Networkside request 
-                                 +Power side error               
+                  +L2 Controler side State(0000 0000)  
+						|		 |		   |||| ||||
+						|		 |		   |||| |+[0]-------- connectpr state (MSB)     
+						|		 |		   |||| | +[1]------- cpPWM_active
+						|		 |		   |||| |  +[2]------ charging_active				  
+                        |        |          --dec-  
+						|        |          Satate
+						|        | 
+						|___________________________
+						+Networkside request 
+						'0000000'
+						 |||||||
+						 +[0]-------- 0     (MSB)
+						  +[1]------- Update Alarm Complete
+						   +[2]------ Update Complete
+						    +[3]----- Charge Pause
+							 +[4]---- Vehicle Check
+							  +[5]--- Shedule Charge
+							   +[6]-- Stop Charge
+							    +[7]- Start (LSB)
+						____________________________
+                                 |
+								 |_____________________________________________________
+								 +Power side error   
+                                '0000000'
+								 |||||||
+								 +[0]-------- trip_GFI---------- Ground Fault
+								  +[1]------- trip_OC_L1-------- Over Current Fault
+								   +[2]------ error_GFI_test---- GFI Test Failed
+								    +[3]----- error_SR_C-------- Stuck Contactor Error
+									 +[4]---- error_SR_N-------- Not used
+									  +[5]--- error_SR_L1------- Not used
+									   +[6]-- error_UV_L1------- Under Voltage Error
+									    +[7]- error_OV_L1------- Over Voltage Error
+                                  ______________________________________________________										
                           
 */ 
 function mcuMsgDecode(buf){
 	totalBufIn = buf;
-	console.log("Bufin",totalBufIn)
+	
 	try{
 		if(totalBufIn.slice(0,1).toString('hex') == '23'){
 			mcuStateL2.generalError = '0'+mcuStateL2.getGeneralError()[1];
@@ -101,9 +134,8 @@ function mcuMsgDecode(buf){
 			dataBufIn = totalBufIn.slice(1,16);
 			msgIdIn = conv.hexToDec(totalBufIn.slice(9,10).toString('hex'));
 			
-			console.log('In:          #  Cc  ST *  NR *  *  PE *  MG V1 -- V2 -- V3 -- CR C- *  n')
+			console.log('             #  C  ST *  NR *  *  PE *  MG V1 -- V2 -- V3 -- CR C- *  n')
 			console.log('In: ',totalBufIn);
-			
 			
 			if(conv.hexToDec(crc16('MODBUS',dataBufIn).toString(16)) == checksmIn){
 				//console.log("CRC PASSED");
@@ -203,8 +235,18 @@ function mcuMsgEncode(controller,state,stopC,errorC,port,parser){
 	checksmOut = crc16('MODBUS',Buffer.concat([selectContBufOut,dataBufOut],15));
 	totalBufOut= Buffer.concat([Buffer.from([0x23]),selectContBufOut,dataBufOut, Buffer.from(checksmOut.toString(16).padStart(4,'0'),'hex').swap16(),Buffer.from([0x2a,0x0a])],20);
 	
-	console.log('Out:          #  Mm ST SP *  *  *  PE  *  *  *  *  *  *  *  *  CR C- *  n')
-	console.log("Out: ", totalBufOut);
+	if(port.path == "/dev/ttyS1"){
+		console.log('\x1b[35m')
+		console.log('              #  M  ST SP *  *  *  PE  *  *  *  *  *  *  *  *  CR C- *  n --> FC')
+		console.log("Out: ", totalBufOut,port.path,port.baudRate);
+		console.log('\x1b[0m')
+		}
+	else if(port.path == "/dev/ttyS2"){
+		console.log('\x1b[36m')
+		console.log('              #  M  ST SP *  *  *  PE  *  *  *  *  *  *  *  *  CR C- *  n --> L2')
+		console.log("Out: ", totalBufOut,port.path,port.baudRate);
+		console.log('\x1b[0m')
+	}
 
 	
 	try{

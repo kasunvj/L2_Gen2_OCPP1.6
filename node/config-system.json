@@ -1,3 +1,9 @@
-{"charger_sys":
-[{"port_no":"1","port_type":"L2","com_protocol":"ttyS1","baud":"9600"},
- {"port_no":"2","port_type":"FC","com_protocol":"ttyS2","baud":"115200"}]}
+{"c_id":"A2234",
+ "charger_sys":
+[{"chtype":"L2","dev":"/dev/ttyS2","baud":"115200"},
+ {"chtype":"FC","dev":"/dev/ttyS1","baud":"9600"},
+ {"chtype":"DISP","dev":"/dev/ttyS2","baud":"115200"}],
+ "disp_sys":
+ [{"conn_bus":"L2"}] 
+ }
+ 
