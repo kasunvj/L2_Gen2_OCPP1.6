@@ -50,7 +50,7 @@ function monitor(charger,netSt){
 			else
 				stateName = 'State Error'
 			
-			//console.log(netSt)
+			//console.log(netSt) 
 			
 			if(netSt == 'IDLE')
 				console.log('Network State   : \x1b[94m[*] IDLE\x1b[0m [ ] PRE_START [ ] START [ ] STOP  \x1b[0m')

@@ -230,7 +230,7 @@ function mcuMsgDecode(buf){
 				const generalError = '01';
 				
 				switch(charger){
-					case 'c': //L2 Charger
+					case 'C': //L2 Charger
 						L2charger.state = state
 						L2charger.activityState = activityState
 						L2charger.netRequest = netRequest
@@ -253,7 +253,7 @@ function mcuMsgDecode(buf){
 								break;
 						}
 						break;
-					case 'C': //Fast Charger
+					case 'c': //Fast Charger
 						Fcharger.state = state
 						Fcharger.activityState = activityState
 						Fcharger.netRequest = netRequest
