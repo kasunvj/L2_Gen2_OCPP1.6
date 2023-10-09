@@ -1,1 +1,4 @@
-{"net_state": "IDLE"}
+{"net_state_l2": "IDLE",
+ "error_state_l2": "",
+ "net_state_fc":"STOP",
+ "error_state_fc":""}
